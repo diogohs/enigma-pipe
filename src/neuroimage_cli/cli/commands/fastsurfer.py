@@ -1,0 +1,158 @@
+import typer
+from pathlib import Path
+from typing import Optional
+import time
+from datetime import datetime, timezone
+
+from neuroimage_cli.core.config import load_settings
+from neuroimage_cli.core.models import ProcessingMode, ExistingOutputPolicy, TerminalStatus, ExecutionMode
+from neuroimage_cli.services.case_discovery import discover_cases
+from neuroimage_cli.services.fastsurfer import FastSurferRunner
+from neuroimage_cli.services.version_checker import check_fastsurfer_version, VersionCheckResult
+from neuroimage_cli.services.brainstem_seg import FreeSurferChecker, run_brainstem_segmentation
+from neuroimage_cli.core.manifest import CompletionManifest, write_manifest
+from neuroimage_cli.core.exceptions import MissingDependencyError, PartialBatchFailureError
+from neuroimage_cli.cli.main import state, app
+from neuroimage_cli.cli.formatting import print_error, print_info, print_warning, print_json_summary
+
+fs_app = typer.Typer(help="Structural processing via FastSurfer")
+app.add_typer(fs_app, name="fastsurfer")
+
+@fs_app.callback(invoke_without_command=True)
+def fastsurfer_main(
+    input_dir: Path = typer.Argument(..., help="Directory containing T1w images", exists=True, file_okay=False, dir_okay=True),
+    output_dir: Path = typer.Argument(..., help="Output directory", file_okay=False, dir_okay=True),
+    fs_license: Optional[Path] = typer.Option(None, "--fs-license", help="Path to FreeSurfer license"),
+    execution_mode: str = typer.Option("docker", "--execution-mode", help="docker or singularity"),
+    processing_mode: ProcessingMode = typer.Option(ProcessingMode.ALL, "--processing-mode", help="Case selection mode"),
+    existing_output: ExistingOutputPolicy = typer.Option(ExistingOutputPolicy.ERROR, "--existing-output", help="Existing output policy"),
+    device: str = typer.Option("cpu", "--device", help="CPU/GPU preference"),
+    threads: Optional[str] = typer.Option(None, "--threads", help="Thread count or 'max'"),
+    backend: str = typer.Option("local", "--backend", help="Execution backend (local or hpc)"),
+    no_asegdkt: bool = typer.Option(False, "--no-asegdkt", help="Skip asegdkt segmentation"),
+    no_cc: bool = typer.Option(False, "--no-cc", help="Skip corpus callosum segmentation"),
+    no_cereb: bool = typer.Option(False, "--no-cereb", help="Skip cerebellum segmentation"),
+    no_hypothal: bool = typer.Option(True, "--no-hypothal", help="Skip hypothalamus segmentation"),
+    skip_version_check: bool = typer.Option(False, "--skip-version-check", help="Bypass FastSurfer version check")
+):
+    settings = load_settings(state.settings_path)
+    license_path = fs_license or settings.fs_license
+    
+    if not license_path or not license_path.exists():
+        print_error("FreeSurfer license is required. Provide via --fs-license or settings.")
+        raise typer.Exit(3)
+        
+    if backend.lower() == "hpc":
+        print_error("HPC scheduler submission is not yet implemented.")
+        raise typer.Exit(3)
+        
+    # Phase 2: Host dependencies (Brainstem segmentation)
+    FreeSurferChecker.check_availability()
+        
+    try:
+        runner = FastSurferRunner(mode=ExecutionMode(execution_mode))
+        if not skip_version_check:
+            raw_version = runner.check_version()
+            res, ver = check_fastsurfer_version(raw_version)
+            if res == VersionCheckResult.UNSUPPORTED:
+                print_warning(f"FastSurfer version {ver} is below the minimum supported version (2.4.0)")
+            elif res == VersionCheckResult.UNPARSEABLE:
+                print_warning("FastSurfer version could not be verified")
+    except MissingDependencyError as e:
+        print_error(str(e))
+        raise typer.Exit(3)
+        
+    try:
+        cases = discover_cases(input_dir, output_dir, "fastsurfer", processing_mode, existing_output)
+    except Exception as e:
+        print_error(f"Validation error: {e}")
+        raise typer.Exit(2)
+        
+    total = len(cases)
+    succeeded = 0
+    failed = 0
+    skipped = 0
+    results = []
+    
+    print_info(f"Discovered {total} cases to process.")
+    
+    for case in cases:
+        try:
+            started = datetime.now(timezone.utc)
+            retcode = runner.run_case(
+                case_id=case.id, 
+                input_path=case.original_path, 
+                output_dir=output_dir, 
+                fs_license=license_path, 
+                device=device, 
+                threads=threads,
+                no_asegdkt=no_asegdkt,
+                no_cc=no_cc,
+                no_cereb=no_cereb,
+                no_hypothal=no_hypothal
+            )
+            
+            brainstem_result = None
+            if retcode == 0:
+                succeeded += 1
+                status = TerminalStatus.SUCCESS
+                brainstem_result = run_brainstem_segmentation(output_dir, case.id, str(threads) if threads else None)
+
+                # Handle brainstem segmentation outcome
+                if brainstem_result.status == "INTERRUPTED":
+                    # Write manifest with INTERRUPTED status and exit immediately
+                    manifest = CompletionManifest(
+                        status=TerminalStatus.INTERRUPTED,
+                        case_id=case.id,
+                        subcommand="fastsurfer",
+                        started_at=started,
+                        outputs=[str(output_dir / case.id)],
+                        brainstem_segmentation=brainstem_result,
+                    )
+                    write_manifest(output_dir, case.id, "fastsurfer", manifest)
+                    results.append({"case_id": case.id, "status": TerminalStatus.INTERRUPTED.value})
+                    if state.json_output:
+                        print_json_summary("fastsurfer", total, succeeded, failed, skipped, 130, results)
+                    raise typer.Exit(130)
+                elif brainstem_result.status == "FAILED":
+                    # Demote success to failure — brainstem seg failed
+                    succeeded -= 1
+                    failed += 1
+                    status = TerminalStatus.FAILED
+            else:
+                failed += 1
+                status = TerminalStatus.FAILED
+                
+            manifest = CompletionManifest(
+                status=status,
+                case_id=case.id,
+                subcommand="fastsurfer",
+                started_at=started,
+                outputs=[str(output_dir / case.id)],
+                brainstem_segmentation=brainstem_result
+            )
+            write_manifest(output_dir, case.id, "fastsurfer", manifest)
+            results.append({"case_id": case.id, "status": status.value})
+            
+        except KeyboardInterrupt:
+            # Handle Ctrl+C
+            manifest = CompletionManifest(
+                status=TerminalStatus.INTERRUPTED,
+                case_id=case.id,
+                subcommand="fastsurfer",
+                started_at=started
+            )
+            write_manifest(output_dir, case.id, "fastsurfer", manifest)
+            results.append({"case_id": case.id, "status": TerminalStatus.INTERRUPTED.value})
+            if state.json_output:
+                print_json_summary("fastsurfer", total, succeeded, failed, skipped, 130, results)
+            raise typer.Exit(130)
+            
+    exit_code = 0
+    if failed > 0:
+        exit_code = 4
+        
+    if state.json_output:
+        print_json_summary("fastsurfer", total, succeeded, failed, skipped, exit_code, results)
+        
+    raise typer.Exit(exit_code)

@@ -1,0 +1,36 @@
+import pytest
+from pathlib import Path
+from neuroimage_cli.core.config import load_settings
+from neuroimage_cli.core.exceptions import InvalidSettingsError
+from neuroimage_cli.services.case_discovery import discover_cases, is_hidden
+from neuroimage_cli.core.models import ProcessingMode, ExistingOutputPolicy
+
+def test_load_settings_defaults():
+    settings = load_settings()
+    assert settings.slicer.alpha == 0.5
+    assert settings.slicer.format == "jpeg"
+
+def test_is_hidden():
+    assert is_hidden(Path(".hidden")) is True
+    assert is_hidden(Path("visible")) is False
+
+def test_discover_cases(tmp_path):
+    input_dir = tmp_path / "input"
+    input_dir.mkdir()
+    
+    (input_dir / "sub-01_T1w.nii.gz").touch()
+    (input_dir / "sub-02_T1w.mgz").touch()
+    (input_dir / ".hidden_T1w.nii").touch()
+    
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
+    
+    cases = discover_cases(
+        input_dir, output_dir, "fastsurfer", 
+        ProcessingMode.ALL, ExistingOutputPolicy.ERROR
+    )
+    
+    assert len(cases) == 2
+    case_ids = {c.id for c in cases}
+    assert "sub-01_T1w" in case_ids
+    assert "sub-02_T1w" in case_ids
