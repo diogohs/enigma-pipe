@@ -1,7 +1,7 @@
 import pytest
 from pathlib import Path
 from typer.testing import CliRunner
-from neuroimage_cli.cli.main import app
+from enigma_pipe.cli.main import app
 
 runner = CliRunner()
 
@@ -24,17 +24,17 @@ def test_fastsurfer_skip_version_check(tmp_path, monkeypatch):
     fs_license.write_text("license")
 
     # Mock the discover_cases to prevent it from failing on empty input
-    from neuroimage_cli.cli.commands import fastsurfer
+    from enigma_pipe.cli.commands import fastsurfer
     monkeypatch.setattr(fastsurfer, "discover_cases", lambda *args, **kwargs: [])
     
     # Mock ContainerRunner to not look for docker
-    monkeypatch.setattr("neuroimage_cli.services.container.ContainerRunner._check_runtime", lambda self: None)
+    monkeypatch.setattr("enigma_pipe.services.container.ContainerRunner._check_runtime", lambda self: None)
     
     # Mock FreeSurferChecker
-    monkeypatch.setattr("neuroimage_cli.cli.commands.fastsurfer.FreeSurferChecker.check_availability", lambda: None)
+    monkeypatch.setattr("enigma_pipe.cli.commands.fastsurfer.FreeSurferChecker.check_availability", lambda: None)
     
     # Mock the check_version to always return an unsupported version if called
-    monkeypatch.setattr("neuroimage_cli.services.fastsurfer.FastSurferRunner.check_version", lambda self: "FastSurfer v2.3.9")
+    monkeypatch.setattr("enigma_pipe.services.fastsurfer.FastSurferRunner.check_version", lambda self: "FastSurfer v2.3.9")
     
     # Run WITHOUT skip_version_check
     result1 = runner.invoke(app, ["fastsurfer", "--fs-license", str(fs_license), str(input_dir), str(out_dir)])
@@ -44,7 +44,7 @@ def test_fastsurfer_skip_version_check(tmp_path, monkeypatch):
     result2 = runner.invoke(app, ["fastsurfer", "--fs-license", str(fs_license), "--skip-version-check", str(input_dir), str(out_dir)])
     assert "below the minimum supported version" not in result2.output
 from unittest.mock import MagicMock
-from neuroimage_cli.core.manifest import BrainstemSegmentation
+from enigma_pipe.core.manifest import BrainstemSegmentation
 from datetime import datetime, timezone
 
 def test_fastsurfer_brainstem_seg_integration(tmp_path, monkeypatch):
@@ -63,20 +63,20 @@ def test_fastsurfer_brainstem_seg_integration(tmp_path, monkeypatch):
             
     mock_cases = [DummyCase("sub-01", input_dir / "sub-01"), DummyCase("sub-02", input_dir / "sub-02")]
     
-    from neuroimage_cli.cli.commands import fastsurfer
+    from enigma_pipe.cli.commands import fastsurfer
     monkeypatch.setattr(fastsurfer, "discover_cases", lambda *args, **kwargs: mock_cases)
-    monkeypatch.setattr("neuroimage_cli.services.container.ContainerRunner._check_runtime", lambda self: None)
-    monkeypatch.setattr("neuroimage_cli.services.fastsurfer.FastSurferRunner.check_version", lambda self: "FastSurfer v2.4.0")
+    monkeypatch.setattr("enigma_pipe.services.container.ContainerRunner._check_runtime", lambda self: None)
+    monkeypatch.setattr("enigma_pipe.services.fastsurfer.FastSurferRunner.check_version", lambda self: "FastSurfer v2.4.0")
     
     # Mock FreeSurferChecker to avoid abort
-    monkeypatch.setattr("neuroimage_cli.cli.commands.fastsurfer.FreeSurferChecker.check_availability", lambda: None)
+    monkeypatch.setattr("enigma_pipe.cli.commands.fastsurfer.FreeSurferChecker.check_availability", lambda: None)
     
     # Mock FastSurferRunner.run_case to succeed for sub-01 and fail for sub-02
     def mock_run_case(self, case_id, **kwargs):
         if case_id == "sub-01":
             return 0
         return 1
-    monkeypatch.setattr("neuroimage_cli.services.fastsurfer.FastSurferRunner.run_case", mock_run_case)
+    monkeypatch.setattr("enigma_pipe.services.fastsurfer.FastSurferRunner.run_case", mock_run_case)
     
     # Mock run_brainstem_segmentation
     mock_run_brainstem = MagicMock()
@@ -86,7 +86,7 @@ def test_fastsurfer_brainstem_seg_integration(tmp_path, monkeypatch):
         started_at=datetime.now(timezone.utc),
         threads_used=1
     )
-    monkeypatch.setattr("neuroimage_cli.cli.commands.fastsurfer.run_brainstem_segmentation", mock_run_brainstem)
+    monkeypatch.setattr("enigma_pipe.cli.commands.fastsurfer.run_brainstem_segmentation", mock_run_brainstem)
     
     result = runner.invoke(app, ["fastsurfer", "--fs-license", str(fs_license), str(input_dir), str(out_dir)])
     
@@ -115,13 +115,13 @@ def _make_single_case_env(tmp_path, monkeypatch, run_case_retcode=0):
 
     mock_cases = [DummyCase("sub-01", input_dir / "sub-01")]
 
-    from neuroimage_cli.cli.commands import fastsurfer as fs_cmd_module
+    from enigma_pipe.cli.commands import fastsurfer as fs_cmd_module
     monkeypatch.setattr(fs_cmd_module, "discover_cases", lambda *a, **kw: mock_cases)
-    monkeypatch.setattr("neuroimage_cli.services.container.ContainerRunner._check_runtime", lambda self: None)
-    monkeypatch.setattr("neuroimage_cli.services.fastsurfer.FastSurferRunner.check_version", lambda self: "FastSurfer v2.4.0")
-    monkeypatch.setattr("neuroimage_cli.cli.commands.fastsurfer.FreeSurferChecker.check_availability", lambda: None)
+    monkeypatch.setattr("enigma_pipe.services.container.ContainerRunner._check_runtime", lambda self: None)
+    monkeypatch.setattr("enigma_pipe.services.fastsurfer.FastSurferRunner.check_version", lambda self: "FastSurfer v2.4.0")
+    monkeypatch.setattr("enigma_pipe.cli.commands.fastsurfer.FreeSurferChecker.check_availability", lambda: None)
     monkeypatch.setattr(
-        "neuroimage_cli.services.fastsurfer.FastSurferRunner.run_case",
+        "enigma_pipe.services.fastsurfer.FastSurferRunner.run_case",
         lambda self, case_id, **kwargs: run_case_retcode,
     )
     return input_dir, out_dir, fs_license
@@ -141,7 +141,7 @@ def test_fastsurfer_brainstem_seg_failure_exits_4(tmp_path, monkeypatch):
     )
 
     mock_run_brainstem = MagicMock(return_value=failed_brainstem)
-    monkeypatch.setattr("neuroimage_cli.cli.commands.fastsurfer.run_brainstem_segmentation", mock_run_brainstem)
+    monkeypatch.setattr("enigma_pipe.cli.commands.fastsurfer.run_brainstem_segmentation", mock_run_brainstem)
 
     result = runner.invoke(
         app, ["fastsurfer", "--fs-license", str(fs_license), str(input_dir), str(out_dir)]
@@ -165,7 +165,7 @@ def test_fastsurfer_brainstem_seg_interrupted_exits_130(tmp_path, monkeypatch):
     )
 
     mock_run_brainstem = MagicMock(return_value=interrupted_brainstem)
-    monkeypatch.setattr("neuroimage_cli.cli.commands.fastsurfer.run_brainstem_segmentation", mock_run_brainstem)
+    monkeypatch.setattr("enigma_pipe.cli.commands.fastsurfer.run_brainstem_segmentation", mock_run_brainstem)
 
     result = runner.invoke(
         app, ["fastsurfer", "--fs-license", str(fs_license), str(input_dir), str(out_dir)]
@@ -201,13 +201,13 @@ def test_fastsurfer_missing_dependency_error(tmp_path, monkeypatch):
     fs_license = tmp_path / "license.txt"
     fs_license.write_text("license")
 
-    from neuroimage_cli.core.exceptions import MissingDependencyError
-    monkeypatch.setattr("neuroimage_cli.cli.commands.fastsurfer.FreeSurferChecker.check_availability", lambda: None)
+    from enigma_pipe.core.exceptions import MissingDependencyError
+    monkeypatch.setattr("enigma_pipe.cli.commands.fastsurfer.FreeSurferChecker.check_availability", lambda: None)
 
     def mock_init(self, *args, **kwargs):
         raise MissingDependencyError("Container engine docker is not available")
 
-    monkeypatch.setattr("neuroimage_cli.services.fastsurfer.FastSurferRunner.__init__", mock_init)
+    monkeypatch.setattr("enigma_pipe.services.fastsurfer.FastSurferRunner.__init__", mock_init)
 
     result = runner.invoke(
         app, ["fastsurfer", "--fs-license", str(fs_license), str(input_dir), str(out_dir)]
@@ -224,14 +224,14 @@ def test_fastsurfer_fastsurfer_run_interrupted(tmp_path, monkeypatch):
     def mock_run_case_interrupt(self, case_id, **kwargs):
         raise KeyboardInterrupt()
 
-    monkeypatch.setattr("neuroimage_cli.services.fastsurfer.FastSurferRunner.run_case", mock_run_case_interrupt)
+    monkeypatch.setattr("enigma_pipe.services.fastsurfer.FastSurferRunner.run_case", mock_run_case_interrupt)
 
     result = runner.invoke(
         app, ["fastsurfer", "--fs-license", str(fs_license), str(input_dir), str(out_dir)]
     )
 
     assert result.exit_code == 130
-    from neuroimage_cli.core.manifest import read_manifest
+    from enigma_pipe.core.manifest import read_manifest
     manifest = read_manifest(out_dir, "sub-01", "fastsurfer")
     assert manifest is not None
     assert manifest.status.value == "interrupted"

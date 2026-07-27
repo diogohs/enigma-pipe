@@ -1,6 +1,6 @@
 import pytest
 from typer.testing import CliRunner
-from neuroimage_cli.cli.main import app
+from enigma_pipe.cli.main import app
 
 runner = CliRunner()
 

@@ -3,9 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "fastsurfer-pipeline"
+name = "enigma-pipe"
 version = "0.1.0"
-description = "Neuroimage Processing CLI"
+description = "Enigma Pipe CLI"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
@@ -33,10 +33,10 @@ dev = [
 ]
 
 [project.scripts]
-neuroimage-cli = "neuroimage_cli.cli.main:app"
+enigma-pipe = "enigma_pipe.cli.main:app"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/neuroimage_cli"]
+packages = ["src/enigma_pipe"]
 
 [tool.ruff]
 line-length = 100
@@ -53,7 +53,7 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 minversion = "8.0"
-addopts = "-ra -q --cov=src/neuroimage_cli --cov-report=term-missing"
+addopts = "-ra -q --cov=src/enigma_pipe --cov-report=term-missing"
 testpaths = [
     "tests",
 ]

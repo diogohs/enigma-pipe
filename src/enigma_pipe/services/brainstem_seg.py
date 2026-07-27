@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from neuroimage_cli.core.manifest import BrainstemSegmentation
+from enigma_pipe.core.manifest import BrainstemSegmentation
 
 import re
 

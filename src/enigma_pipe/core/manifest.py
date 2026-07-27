@@ -4,8 +4,8 @@ from pathlib import Path
 from typing import List, Optional
 from pydantic import BaseModel, Field
 
-from neuroimage_cli.core.models import TerminalStatus
-from neuroimage_cli.services.atomic import atomic_write
+from enigma_pipe.core.models import TerminalStatus
+from enigma_pipe.services.atomic import atomic_write
 
 class BrainstemSegmentation(BaseModel):
     status: str

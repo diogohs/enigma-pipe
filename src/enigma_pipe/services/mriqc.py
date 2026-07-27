@@ -1,8 +1,8 @@
 from pathlib import Path
 from typing import List, Optional
 
-from neuroimage_cli.core.models import ExecutionMode
-from neuroimage_cli.services.container import ContainerRunner
+from enigma_pipe.core.models import ExecutionMode
+from enigma_pipe.services.container import ContainerRunner
 
 class MRIQCRunner(ContainerRunner):
     def __init__(self, mode: ExecutionMode, image: str = "nipreps/mriqc:latest"):

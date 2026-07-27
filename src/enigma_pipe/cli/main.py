@@ -3,8 +3,8 @@ from typing import Optional
 from pathlib import Path
 
 app = typer.Typer(
-    name="neuroimage-cli",
-    help="Neuroimage Processing CLI",
+    name="enigma-pipe",
+    help="Enigma Pipe CLI",
     no_args_is_help=True
 )
 
@@ -30,11 +30,11 @@ def main(
     state.settings_path = settings
 
 # Import commands to register them with the Typer app
-import neuroimage_cli.cli.commands.fastsurfer
-import neuroimage_cli.cli.commands.qc_img
-import neuroimage_cli.cli.commands.qc_seg
-import neuroimage_cli.cli.commands.mriqc
-import neuroimage_cli.cli.commands.slicer
+import enigma_pipe.cli.commands.fastsurfer
+import enigma_pipe.cli.commands.qc_img
+import enigma_pipe.cli.commands.qc_seg
+import enigma_pipe.cli.commands.mriqc
+import enigma_pipe.cli.commands.slicer
 
 if __name__ == "__main__":
     app()

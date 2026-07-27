@@ -1,7 +1,7 @@
 import re
 from enum import Enum
 from typing import Tuple
-from neuroimage_cli.core.constants import MIN_FASTSURFER_VERSION
+from enigma_pipe.core.constants import MIN_FASTSURFER_VERSION
 
 class VersionCheckResult(Enum):
     SUPPORTED = "SUPPORTED"

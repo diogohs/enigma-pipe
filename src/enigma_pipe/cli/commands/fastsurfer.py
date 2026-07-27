@@ -4,16 +4,16 @@ from typing import Optional
 import time
 from datetime import datetime, timezone
 
-from neuroimage_cli.core.config import load_settings
-from neuroimage_cli.core.models import ProcessingMode, ExistingOutputPolicy, TerminalStatus, ExecutionMode
-from neuroimage_cli.services.case_discovery import discover_cases
-from neuroimage_cli.services.fastsurfer import FastSurferRunner
-from neuroimage_cli.services.version_checker import check_fastsurfer_version, VersionCheckResult
-from neuroimage_cli.services.brainstem_seg import FreeSurferChecker, run_brainstem_segmentation
-from neuroimage_cli.core.manifest import CompletionManifest, write_manifest
-from neuroimage_cli.core.exceptions import MissingDependencyError, PartialBatchFailureError
-from neuroimage_cli.cli.main import state, app
-from neuroimage_cli.cli.formatting import print_error, print_info, print_warning, print_json_summary
+from enigma_pipe.core.config import load_settings
+from enigma_pipe.core.models import ProcessingMode, ExistingOutputPolicy, TerminalStatus, ExecutionMode
+from enigma_pipe.services.case_discovery import discover_cases
+from enigma_pipe.services.fastsurfer import FastSurferRunner
+from enigma_pipe.services.version_checker import check_fastsurfer_version, VersionCheckResult
+from enigma_pipe.services.brainstem_seg import FreeSurferChecker, run_brainstem_segmentation
+from enigma_pipe.core.manifest import CompletionManifest, write_manifest
+from enigma_pipe.core.exceptions import MissingDependencyError, PartialBatchFailureError
+from enigma_pipe.cli.main import state, app
+from enigma_pipe.cli.formatting import print_error, print_info, print_warning, print_json_summary
 
 fs_app = typer.Typer(help="Structural processing via FastSurfer")
 app.add_typer(fs_app, name="fastsurfer")

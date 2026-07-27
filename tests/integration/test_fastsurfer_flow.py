@@ -1,7 +1,7 @@
 import pytest
 from pathlib import Path
-from neuroimage_cli.core.models import TerminalStatus
-from neuroimage_cli.core.manifest import read_manifest
+from enigma_pipe.core.models import TerminalStatus
+from enigma_pipe.core.manifest import read_manifest
 
 @pytest.mark.integration
 def test_fastsurfer_continuation_mode(tmp_path):

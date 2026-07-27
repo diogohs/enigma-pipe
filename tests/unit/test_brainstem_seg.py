@@ -4,7 +4,7 @@ import subprocess
 import pytest
 from unittest.mock import patch, mock_open, MagicMock
 
-from neuroimage_cli.services.brainstem_seg import FreeSurferChecker
+from enigma_pipe.services.brainstem_seg import FreeSurferChecker
 
 def test_check_availability_missing_executable(capsys):
     with patch("shutil.which", return_value=None):
@@ -85,7 +85,7 @@ def test_check_availability_no_warning_if_unparseable(capsys):
                         
                         captured = capsys.readouterr()
                         assert "WARNING" not in captured.err
-from neuroimage_cli.services.brainstem_seg import compute_threads
+from enigma_pipe.services.brainstem_seg import compute_threads
 
 def test_compute_threads_default():
     assert compute_threads(None) == 1
@@ -108,7 +108,7 @@ def test_compute_threads_max_fallback_minimum():
     with patch("os.cpu_count", return_value=1):
         with patch("builtins.hasattr", side_effect=lambda obj, name: False if name == "sched_getaffinity" else hasattr(obj, name)):
             assert compute_threads("max") == 1
-from neuroimage_cli.services.brainstem_seg import run_brainstem_segmentation
+from enigma_pipe.services.brainstem_seg import run_brainstem_segmentation
 from pathlib import Path
 from datetime import datetime, timezone
 

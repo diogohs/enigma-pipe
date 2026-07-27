@@ -3,13 +3,13 @@ from pathlib import Path
 from typing import Optional, List
 from datetime import datetime, timezone
 
-from neuroimage_cli.core.config import load_settings
-from neuroimage_cli.core.models import ProcessingMode, ExistingOutputPolicy, TerminalStatus, ExecutionMode
-from neuroimage_cli.services.mriqc import MRIQCRunner
-from neuroimage_cli.core.manifest import CompletionManifest, write_manifest
-from neuroimage_cli.core.exceptions import MissingDependencyError
-from neuroimage_cli.cli.main import state, app
-from neuroimage_cli.cli.formatting import print_error, print_info, print_warning, print_json_summary
+from enigma_pipe.core.config import load_settings
+from enigma_pipe.core.models import ProcessingMode, ExistingOutputPolicy, TerminalStatus, ExecutionMode
+from enigma_pipe.services.mriqc import MRIQCRunner
+from enigma_pipe.core.manifest import CompletionManifest, write_manifest
+from enigma_pipe.core.exceptions import MissingDependencyError
+from enigma_pipe.cli.main import state, app
+from enigma_pipe.cli.formatting import print_error, print_info, print_warning, print_json_summary
 
 mriqc_app = typer.Typer(help="Automated Image Quality Assessment via MRIQC")
 app.add_typer(mriqc_app, name="mriqc")

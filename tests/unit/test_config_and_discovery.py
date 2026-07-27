@@ -1,9 +1,9 @@
 import pytest
 from pathlib import Path
-from neuroimage_cli.core.config import load_settings
-from neuroimage_cli.core.exceptions import InvalidSettingsError
-from neuroimage_cli.services.case_discovery import discover_cases, is_hidden
-from neuroimage_cli.core.models import ProcessingMode, ExistingOutputPolicy
+from enigma_pipe.core.config import load_settings
+from enigma_pipe.core.exceptions import InvalidSettingsError
+from enigma_pipe.services.case_discovery import discover_cases, is_hidden
+from enigma_pipe.core.models import ProcessingMode, ExistingOutputPolicy
 
 def test_load_settings_defaults():
     settings = load_settings()

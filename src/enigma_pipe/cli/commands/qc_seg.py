@@ -4,14 +4,14 @@ from pathlib import Path
 from rich.prompt import Prompt, IntPrompt
 from datetime import datetime, timezone
 
-from neuroimage_cli.core.config import load_settings
-from neuroimage_cli.core.models import ProcessingMode, ExistingOutputPolicy, TerminalStatus, SegmentationType
-from neuroimage_cli.services.case_discovery import discover_cases
-from neuroimage_cli.services.itksnap import ITKSnapLauncher
-from neuroimage_cli.services.qc_segmentation import write_segmentation_qc_csv
-from neuroimage_cli.core.manifest import CompletionManifest, write_manifest
-from neuroimage_cli.cli.main import state, app
-from neuroimage_cli.cli.formatting import print_error, print_info, print_warning, print_json_summary
+from enigma_pipe.core.config import load_settings
+from enigma_pipe.core.models import ProcessingMode, ExistingOutputPolicy, TerminalStatus, SegmentationType
+from enigma_pipe.services.case_discovery import discover_cases
+from enigma_pipe.services.itksnap import ITKSnapLauncher
+from enigma_pipe.services.qc_segmentation import write_segmentation_qc_csv
+from enigma_pipe.core.manifest import CompletionManifest, write_manifest
+from enigma_pipe.cli.main import state, app
+from enigma_pipe.cli.formatting import print_error, print_info, print_warning, print_json_summary
 import re
 
 qc_seg_app = typer.Typer(help="Interactive Segmentation QC via ITK-SNAP")

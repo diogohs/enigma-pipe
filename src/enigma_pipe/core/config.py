@@ -3,7 +3,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional, List
 from pathlib import Path
 
-from neuroimage_cli.core.models import ExecutionMode, SegmentationType
+from enigma_pipe.core.models import ExecutionMode, SegmentationType
 import getpass
 
 def default_reviewer_id() -> str:
@@ -33,7 +33,7 @@ class AppSettings(BaseSettings):
     slicer: SlicerSettings = Field(default_factory=SlicerSettings)
 
     model_config = SettingsConfigDict(
-        env_prefix="NEUROIMAGE_",
+        env_prefix="ENIGMA_PIPE_",
         env_nested_delimiter="__",
         extra="forbid"
     )

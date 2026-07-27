@@ -1,8 +1,8 @@
 import subprocess
 from pathlib import Path
 from typing import List, Optional
-from neuroimage_cli.core.models import ExecutionMode
-from neuroimage_cli.core.exceptions import MissingDependencyError
+from enigma_pipe.core.models import ExecutionMode
+from enigma_pipe.core.exceptions import MissingDependencyError
 
 class ContainerRunner:
     def __init__(self, mode: ExecutionMode, image: str):

@@ -1,8 +1,8 @@
 import pytest
 from pathlib import Path
-from neuroimage_cli.core.exceptions import InvalidSettingsError
-from neuroimage_cli.services.case_discovery import discover_cases
-from neuroimage_cli.core.models import ProcessingMode, ExistingOutputPolicy
+from enigma_pipe.core.exceptions import InvalidSettingsError
+from enigma_pipe.services.case_discovery import discover_cases
+from enigma_pipe.core.models import ProcessingMode, ExistingOutputPolicy
 
 def test_output_collision(tmp_path):
     input_dir = tmp_path / "input"

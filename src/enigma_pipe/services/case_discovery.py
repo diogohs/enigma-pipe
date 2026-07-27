@@ -2,10 +2,10 @@ import os
 from pathlib import Path
 from typing import List, Set, Iterator
 
-from neuroimage_cli.core.models import CaseIdentifier, ProcessingMode, ExistingOutputPolicy
-from neuroimage_cli.core.manifest import read_manifest
-from neuroimage_cli.services.case_identifier import derive_case_id
-from neuroimage_cli.core.exceptions import InvalidSettingsError
+from enigma_pipe.core.models import CaseIdentifier, ProcessingMode, ExistingOutputPolicy
+from enigma_pipe.core.manifest import read_manifest
+from enigma_pipe.services.case_identifier import derive_case_id
+from enigma_pipe.core.exceptions import InvalidSettingsError
 
 def is_hidden(path: Path) -> bool:
     return path.name.startswith('.')

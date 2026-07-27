@@ -3,8 +3,8 @@ from pathlib import Path
 from typing import Optional
 from datetime import datetime, timezone
 
-from neuroimage_cli.services.atomic import atomic_write
-from neuroimage_cli.core.models import SegmentationType
+from enigma_pipe.services.atomic import atomic_write
+from enigma_pipe.core.models import SegmentationType
 
 def write_segmentation_qc_csv(
     output_dir: Path, 

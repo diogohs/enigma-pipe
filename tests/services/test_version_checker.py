@@ -1,5 +1,5 @@
 import pytest
-from neuroimage_cli.services.version_checker import check_fastsurfer_version, VersionCheckResult
+from enigma_pipe.services.version_checker import check_fastsurfer_version, VersionCheckResult
 
 def test_check_fastsurfer_version_supported():
     # Exact minimum
