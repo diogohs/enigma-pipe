@@ -31,6 +31,13 @@ class FastSurferRunner(ContainerRunner):
             (fs_license.resolve(), Path("/fs_license.txt"))
         ]
         
+        container_opts = []
+        if device.lower() in ("gpu", "cuda"):
+            if self.mode == ExecutionMode.DOCKER:
+                container_opts.extend(["--gpus", "all"])
+            elif self.mode in (ExecutionMode.SINGULARITY, ExecutionMode.APPTAINER):
+                container_opts.append("--nv")
+
         args = [
             "--t1", f"/data/{input_path.name}",
             "--sid", case_id,
@@ -53,4 +60,4 @@ class FastSurferRunner(ContainerRunner):
         if no_hypothal:
             args.append("--no_hypothal")
             
-        return self.run(binds, args)
+        return self.run(binds, args, container_opts=container_opts)

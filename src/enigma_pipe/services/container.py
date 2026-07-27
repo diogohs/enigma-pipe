@@ -26,23 +26,27 @@ class ContainerRunner:
             else:
                 raise MissingDependencyError(f"{self.mode.value} not found on PATH.")
                 
-    def build_command(self, binds: List[tuple[Path, Path]], extra_args: List[str] = []) -> List[str]:
+    def build_command(self, binds: List[tuple[Path, Path]], extra_args: List[str] = [], container_opts: List[str] = []) -> List[str]:
         cmd = []
         if self.mode == ExecutionMode.DOCKER:
             cmd = ["docker", "run", "--rm", "-t"]
+            if hasattr(os, "getuid") and hasattr(os, "getgid") and "--user" not in container_opts:
+                cmd.extend(["--user", f"{os.getuid()}:{os.getgid()}"])
             for src, dst in binds:
                 cmd.extend(["-v", f"{src}:{dst}"])
+            cmd.extend(container_opts)
             cmd.append(self.image)
         elif self.mode in (ExecutionMode.SINGULARITY, ExecutionMode.APPTAINER):
             cmd = [self.mode.value, "exec", "--cleanenv"]
             for src, dst in binds:
                 cmd.extend(["-B", f"{src}:{dst}"])
+            cmd.extend(container_opts)
             cmd.append(self.image)
         cmd.extend(extra_args)
         return cmd
         
-    def run(self, binds: List[tuple[Path, Path]], extra_args: List[str] = []) -> int:
-        cmd = self.build_command(binds, extra_args)
+    def run(self, binds: List[tuple[Path, Path]], extra_args: List[str] = [], container_opts: List[str] = []) -> int:
+        cmd = self.build_command(binds, extra_args, container_opts)
         try:
             result = subprocess.run(cmd, check=False)
             return result.returncode
