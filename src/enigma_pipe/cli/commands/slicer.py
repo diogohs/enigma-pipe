@@ -17,10 +17,7 @@ from enigma_pipe.cli.main import state, app
 from enigma_pipe.cli.formatting import print_error, print_info, print_json_summary
 from enigma_pipe.cli.commands.qc_seg import SEG_FILES
 
-slicer_app = typer.Typer(help="Generate Slice Captures")
-app.add_typer(slicer_app, name="slicer")
-
-@slicer_app.callback(invoke_without_command=True)
+@app.command(name="slicer", help="Generate Slice Captures")
 def slicer_main(
     input_dir: Path = typer.Argument(..., help="Directory containing FastSurfer outputs", exists=True, file_okay=False, dir_okay=True),
     output_dir: Path = typer.Argument(..., help="Output directory for captures", file_okay=False, dir_okay=True),

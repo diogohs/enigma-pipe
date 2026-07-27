@@ -14,9 +14,6 @@ from enigma_pipe.cli.main import state, app
 from enigma_pipe.cli.formatting import print_error, print_info, print_warning, print_json_summary
 import re
 
-qc_seg_app = typer.Typer(help="Interactive Segmentation QC via ITK-SNAP")
-app.add_typer(qc_seg_app, name="qc-seg")
-
 # Map of SegmentationType to expected FastSurfer output filenames
 SEG_FILES = {
     SegmentationType.ASEG: "mri/aparc.DKTatlas+aseg.deep.mgz",
@@ -25,7 +22,7 @@ SEG_FILES = {
     SegmentationType.ENIGMA_SC: "mri/enigma-sc.mgz"
 }
 
-@qc_seg_app.callback(invoke_without_command=True)
+@app.command(name="qc-seg", help="Interactive Segmentation QC via ITK-SNAP")
 def qc_seg_main(
     input_dir: Path = typer.Argument(..., help="Directory containing FastSurfer outputs", exists=True, file_okay=False, dir_okay=True),
     output_dir: Path = typer.Argument(..., help="Output directory for QC records", file_okay=False, dir_okay=True),

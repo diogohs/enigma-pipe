@@ -13,10 +13,7 @@ from enigma_pipe.core.manifest import CompletionManifest, write_manifest
 from enigma_pipe.cli.main import state, app
 from enigma_pipe.cli.formatting import print_error, print_info, print_warning, print_json_summary
 
-qc_img_app = typer.Typer(help="Interactive Image QC via ITK-SNAP")
-app.add_typer(qc_img_app, name="qc-img")
-
-@qc_img_app.callback(invoke_without_command=True)
+@app.command(name="qc-img", help="Interactive Image QC via ITK-SNAP")
 def qc_img_main(
     input_dir: Path = typer.Argument(..., help="Directory containing T1w images", exists=True, file_okay=False, dir_okay=True),
     output_dir: Path = typer.Argument(..., help="Output directory", file_okay=False, dir_okay=True),

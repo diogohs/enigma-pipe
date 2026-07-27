@@ -11,10 +11,7 @@ from enigma_pipe.core.exceptions import MissingDependencyError
 from enigma_pipe.cli.main import state, app
 from enigma_pipe.cli.formatting import print_error, print_info, print_warning, print_json_summary
 
-mriqc_app = typer.Typer(help="Automated Image Quality Assessment via MRIQC")
-app.add_typer(mriqc_app, name="mriqc")
-
-@mriqc_app.callback(invoke_without_command=True)
+@app.command(name="mriqc", help="Automated Image Quality Assessment via MRIQC")
 def mriqc_main(
     bids_dir: Path = typer.Argument(..., help="BIDS dataset directory", exists=True, file_okay=False, dir_okay=True),
     output_dir: Path = typer.Argument(..., help="Output directory", file_okay=False, dir_okay=True),
