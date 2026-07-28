@@ -44,7 +44,7 @@ class ITKSnapLauncher:
 
         cmd = [str(self.executable), "-g", str(image_path)]
         if processed_overlays:
-            cmd.extend(["-o"] + [str(p) for p in processed_overlays])
+            cmd.extend(["-s"] + [str(p) for p in processed_overlays])
 
         try:
             # Use preexec_fn=os.setsid to create a process group (Linux/macOS)
