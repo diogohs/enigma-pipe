@@ -127,7 +127,7 @@ def qc_seg_main(
             try:
                 content = log_file.read_text(errors="replace")
                 # Look for FastSurfer version string
-                match = re.search(r"FastSurfer version:?\s*v?([\d\.]+)", content, re.IGNORECASE)
+                match = re.search(r"FastSurfer[_\s]+version:?\s*v?([\d.]+)", content, re.IGNORECASE)
                 if match:
                     fastsurfer_version = match.group(1)
                     break
