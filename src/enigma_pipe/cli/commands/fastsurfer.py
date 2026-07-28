@@ -27,17 +27,21 @@ def fastsurfer_main(
     ),
     output_dir: Path = typer.Argument(..., help="Output directory", file_okay=False, dir_okay=True),
     fs_license: Path | None = typer.Option(None, "--fs-license", help="Path to FreeSurfer license"),
-    execution_mode: str = typer.Option("docker", "--execution-mode", help="docker or singularity"),
+    execution_mode: str = typer.Option(
+        "docker", "--execution-mode", help="Container runtime to use (docker, singularity, or apptainer)"
+    ),
     processing_mode: ProcessingMode = typer.Option(
-        ProcessingMode.ALL, "--processing-mode", help="Case selection mode"
+        ProcessingMode.ALL, "--processing-mode", help="Case selection mode ('all' for entire directory, 'continue' to resume incomplete runs, 'file' for explicit lists)"
     ),
     existing_output: ExistingOutputPolicy = typer.Option(
-        ExistingOutputPolicy.ERROR, "--existing-output", help="Existing output policy"
+        ExistingOutputPolicy.ERROR, "--existing-output", help="Action when output exists: 'error' (abort), 'skip' (ignore), 'resume' (continue partial), 'replace' (overwrite)"
     ),
-    device: str = typer.Option("cpu", "--device", help="CPU/GPU preference"),
+    device: str = typer.Option(
+        "cpu", "--device", help="Compute device for neural network inference ('cpu', 'gpu', or 'cuda')"
+    ),
     threads: str | None = typer.Option(None, "--threads", help="Thread count or 'max'"),
     backend: str = typer.Option("local", "--backend", help="Execution backend (local or hpc)"),
-    no_asegdkt: bool = typer.Option(False, "--no-asegdkt", help="Skip asegdkt segmentation"),
+    no_asegdkt: bool = typer.Option(False, "--no-asegdkt", help="Skip asegdkt (whole brain segmentation) segmentation"),
     no_cc: bool = typer.Option(False, "--no-cc", help="Skip corpus callosum segmentation"),
     no_cereb: bool = typer.Option(False, "--no-cereb", help="Skip cerebellum segmentation"),
     no_hypothal: bool = typer.Option(True, "--no-hypothal", help="Skip hypothalamus segmentation"),
@@ -92,16 +96,19 @@ def fastsurfer_main(
     skipped = skipped_count
     results = []
 
+    case_word_found = "case" if total_found == 1 else "cases"
+    case_word_process = "case" if total_to_process == 1 else "cases"
+
     if total_found > 0 and total_to_process == 0:
         print_info(
-            f"Discovered {total_found} cases, but all {skipped_count} cases are already completed and skipped according to policy."
+            f"Discovered {total_found} {case_word_found}, but all {skipped_count} {case_word_found} are already completed and skipped according to policy."
         )
     elif skipped_count > 0:
         print_info(
-            f"Discovered {total_found} cases: {total_to_process} to process ({skipped_count} already completed and skipped)."
+            f"Discovered {total_found} {case_word_found}: {total_to_process} {case_word_process} to process ({skipped_count} already completed and skipped)."
         )
     else:
-        print_info(f"Discovered {total_to_process} cases to process.")
+        print_info(f"Discovered {total_to_process} {case_word_process} to process.")
 
     for case in cases:
         try:
