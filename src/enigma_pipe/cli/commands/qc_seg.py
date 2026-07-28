@@ -49,9 +49,17 @@ def qc_seg_main(
         raise typer.Exit(2)
         
     total = len(cases)
-    if total == 0:
+    total_found = getattr(cases, "total_found", total)
+    skipped_count = getattr(cases, "skipped_count", 0)
+
+    if total_found > 0 and total == 0:
+        print_info(f"Discovered {total_found} cases, but all {skipped_count} cases are already completed and skipped according to policy.")
+        raise typer.Exit(0)
+    elif total == 0:
         print_info("No cases found to process.")
         raise typer.Exit(0)
+    elif skipped_count > 0:
+        print_info(f"Discovered {total_found} cases: {total} to process ({skipped_count} already completed and skipped).")
         
     launcher = ITKSnapLauncher(settings.itksnap_path)
     succeeded = 0

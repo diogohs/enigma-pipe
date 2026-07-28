@@ -1,8 +1,11 @@
+import os
+import shlex
 import subprocess
 from pathlib import Path
 from typing import List, Optional
 from enigma_pipe.core.models import ExecutionMode
 from enigma_pipe.core.exceptions import MissingDependencyError
+from enigma_pipe.cli.formatting import print_info
 
 class ContainerRunner:
     def __init__(self, mode: ExecutionMode, image: str):
@@ -14,12 +17,12 @@ class ContainerRunner:
         """Check if container runtime is available."""
         cmd = ["docker", "--version"] if self.mode == ExecutionMode.DOCKER else [self.mode.value, "--version"]
         try:
-            subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(cmd, check=True, capture_output=True)
         except (subprocess.CalledProcessError, FileNotFoundError):
             # For singularity, fall back to apptainer if not found, and vice-versa
             if self.mode == ExecutionMode.SINGULARITY:
                 try:
-                    subprocess.run(["apptainer", "--version"], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                    subprocess.run(["apptainer", "--version"], check=True, capture_output=True)
                     self.mode = ExecutionMode.APPTAINER
                 except (subprocess.CalledProcessError, FileNotFoundError):
                     raise MissingDependencyError("Singularity/Apptainer not found on PATH.")
@@ -47,6 +50,7 @@ class ContainerRunner:
         
     def run(self, binds: List[tuple[Path, Path]], extra_args: List[str] = [], container_opts: List[str] = []) -> int:
         cmd = self.build_command(binds, extra_args, container_opts)
+        print_info(f"Executing command: {shlex.join(cmd)}")
         try:
             result = subprocess.run(cmd, check=False)
             return result.returncode

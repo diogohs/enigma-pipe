@@ -66,12 +66,21 @@ def fastsurfer_main(
         raise typer.Exit(2)
         
     total = len(cases)
+    total_to_process = len(cases)
+    total_found = getattr(cases, "total_found", total_to_process)
+    skipped_count = getattr(cases, "skipped_count", 0)
+    
     succeeded = 0
     failed = 0
-    skipped = 0
+    skipped = skipped_count
     results = []
     
-    print_info(f"Discovered {total} cases to process.")
+    if total_found > 0 and total_to_process == 0:
+        print_info(f"Discovered {total_found} cases, but all {skipped_count} cases are already completed and skipped according to policy.")
+    elif skipped_count > 0:
+        print_info(f"Discovered {total_found} cases: {total_to_process} to process ({skipped_count} already completed and skipped).")
+    else:
+        print_info(f"Discovered {total_to_process} cases to process.")
     
     for case in cases:
         try:

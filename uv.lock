@@ -620,6 +620,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "antspyx" },
+    { name = "black" },
     { name = "nibabel" },
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "numpy", version = "2.3.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
@@ -656,6 +657,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "antspyx", specifier = ">=0.4.0" },
+    { name = "black", specifier = ">=26.5.1" },
     { name = "black", marker = "extra == 'dev'", specifier = ">=23.0.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.5.0" },
     { name = "nibabel", specifier = ">=5.0.0" },
