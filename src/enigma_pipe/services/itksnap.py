@@ -27,9 +27,40 @@ class ITKSnapLauncher:
             nib.save(img, nii_path)
         return nii_path
 
+    def _prepare_overlay(self, overlay_path: Path, ref_img: nib.spatialimages.SpatialImage) -> Path:
+        import nibabel.processing
+
+        overlay_img = nib.load(overlay_path)
+
+        # If it's already a NIfTI and shapes match, we can just use the original path
+        if not overlay_path.name.endswith(".mgz") and overlay_img.shape == ref_img.shape:
+            return overlay_path
+
+        if self._temp_dir is None:
+            self._temp_dir = tempfile.TemporaryDirectory()
+
+        # Handle multiple suffixes like .nii.gz gracefully
+        base_name = overlay_path.name
+        if base_name.endswith(".nii.gz"):
+            base_name = base_name[:-7]
+        elif base_name.endswith(".mgz") or base_name.endswith(".nii"):
+            base_name = base_name[:-4]
+
+        out_path = Path(self._temp_dir.name) / f"{base_name}.nii.gz"
+
+        if not out_path.exists():
+            if overlay_img.shape != ref_img.shape:
+                overlay_img = nibabel.processing.resample_from_to(overlay_img, ref_img, order=0)
+            nib.save(overlay_img, out_path)
+
+        return out_path
+
     def launch(self, image_path: Path, overlay_paths: list[Path] = []) -> None:
         """Launch ITK-SNAP non-blocking."""
         self.close()  # Attempt to close previous window
+
+        # Load reference image to get shape for resampling if necessary
+        ref_img = nib.load(image_path)
 
         # Convert inputs if needed
         if image_path.name.endswith(".mgz"):
@@ -37,10 +68,7 @@ class ITKSnapLauncher:
 
         processed_overlays = []
         for p in overlay_paths:
-            if p.name.endswith(".mgz"):
-                processed_overlays.append(self._convert_mgz_to_nii(p))
-            else:
-                processed_overlays.append(p)
+            processed_overlays.append(self._prepare_overlay(p, ref_img))
 
         cmd = [str(self.executable), "-g", str(image_path)]
         if processed_overlays:
