@@ -18,9 +18,7 @@ class FastSurferRunner(ContainerRunner):
 
         print_info(f"Executing command: {shlex.join(cmd)}")
         try:
-            result = subprocess.run(
-                cmd, check=True, capture_output=True, text=True
-            )
+            result = subprocess.run(cmd, check=True, capture_output=True, text=True)
             return result.stdout.strip()
         except subprocess.CalledProcessError:
             return "unknown"
