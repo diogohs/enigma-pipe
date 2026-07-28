@@ -6,7 +6,7 @@ from pathlib import Path
 import nibabel as nib
 import typer
 
-from enigma_pipe.cli.commands.qc_seg import SEG_FILES
+from enigma_pipe.cli.commands.qc_seg import SEG_FILES, resolve_seg_file
 from enigma_pipe.cli.formatting import print_error, print_info, print_json_summary
 from enigma_pipe.cli.main import app, state
 from enigma_pipe.core.config import load_settings
@@ -120,8 +120,8 @@ def slicer_main(
 
                 # 3. Process each segmentation
                 for seg_type in settings.segmentation_to_eval:
-                    seg_file = case_root / SEG_FILES[seg_type]
-                    if not seg_file.exists():
+                    seg_file = resolve_seg_file(case_root, seg_type)
+                    if not seg_file:
                         continue
 
                     # Determine LUT file

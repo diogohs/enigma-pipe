@@ -19,13 +19,21 @@ from enigma_pipe.services.case_discovery import discover_cases
 from enigma_pipe.services.itksnap import ITKSnapLauncher
 from enigma_pipe.services.qc_segmentation import write_segmentation_qc_csv
 
-# Map of SegmentationType to expected FastSurfer output filenames
+# Map of SegmentationType to expected FastSurfer output filename patterns
 SEG_FILES = {
-    SegmentationType.ASEG: "mri/aparc.DKTatlas+aseg.deep.mgz",
-    SegmentationType.BRAINSTEM: "mri/brainstem.mgz",
-    SegmentationType.CEREBNET: "mri/cerebnet.mgz",
-    SegmentationType.ENIGMA_SC: "mri/enigma-sc.mgz",
+    SegmentationType.ASEG: ["mri/aparc.DKTatlas+aseg.deep.mgz"],
+    SegmentationType.BRAINSTEM: ["mri/brainstemSsLabels*.mgz", "mri/brainstem*.mgz"],
+    SegmentationType.CEREBNET: ["mri/cerebellum.CerebNet*.nii.gz", "mri/cerebellum.CerebNet*.mgz", "mri/cerebnet*.mgz"],
+    SegmentationType.ENIGMA_SC: ["mri/enigma-sc.mgz"],
 }
+
+
+def resolve_seg_file(case_root: Path, seg_type: SegmentationType) -> Path | None:
+    for pattern in SEG_FILES[seg_type]:
+        matches = list(case_root.glob(pattern))
+        if matches:
+            return matches[0]
+    return None
 
 
 @app.command(name="qc-seg", help="Interactive Segmentation QC via ITK-SNAP")
@@ -110,26 +118,29 @@ def qc_seg_main(
         # For each segmentation type to eval
         case_root = case.original_path.parent.parent  # Since original_path is mri/brainmask.mgz
 
-        # Extract FastSurfer version
+        # Extract FastSurfer version from stats files
         fastsurfer_version = ""
-        log_file = case_root / "scripts" / "recon-surf.log"
-        if log_file.exists():
+        stats_dir = case_root / "stats"
+        version_files = list(stats_dir.glob("*.stats")) if stats_dir.exists() else []
+        
+        for log_file in version_files:
             try:
-                content = log_file.read_text()
+                content = log_file.read_text(errors="replace")
                 # Look for FastSurfer version string
                 match = re.search(r"FastSurfer version:?\s*v?([\d\.]+)", content, re.IGNORECASE)
                 if match:
                     fastsurfer_version = match.group(1)
+                    break
             except Exception:
-                pass
+                continue
 
         if not fastsurfer_version:
             print_warning(f"Could not determine FastSurfer version for case {case.id}")
 
         csvs_written = []
         for seg_type in settings.segmentation_to_eval:
-            seg_file = case_root / SEG_FILES[seg_type]
-            if not seg_file.exists():
+            seg_file = resolve_seg_file(case_root, seg_type)
+            if not seg_file:
                 print_info(f"Skipping {seg_type.value}, not found for case {case.id}")
                 continue
 
