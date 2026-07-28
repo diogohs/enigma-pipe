@@ -18,6 +18,8 @@ def is_hidden(path: Path) -> bool:
     return path.name.startswith(".")
 
 
+from typing import Callable
+
 def discover_cases(
     input_dir: Path,
     output_dir: Path,
@@ -26,6 +28,7 @@ def discover_cases(
     existing_output: ExistingOutputPolicy,
     extensions: tuple = (".nii.gz", ".nii", ".mgz"),
     prune_fastsurfer: bool = True,
+    case_id_extractor: Callable[[Path], str] | None = None,
 ) -> DiscoveryResult:
     """
     Traverse input_dir deterministically and yield eligible cases.
@@ -55,7 +58,10 @@ def discover_cases(
 
             if file.endswith(extensions):
                 file_path = root_path / file
-                case_id = derive_case_id(file_path)
+                if case_id_extractor:
+                    case_id = case_id_extractor(file_path)
+                else:
+                    case_id = derive_case_id(file_path)
 
                 # Output collision detection
                 if case_id in seen_ids:

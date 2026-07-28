@@ -71,6 +71,7 @@ def qc_seg_main(
             existing_output,
             extensions=("brainmask.mgz",),
             prune_fastsurfer=False,
+            case_id_extractor=lambda p: p.parent.parent.name,
         )
     except Exception as e:
         print_error(f"Validation error: {e}")
