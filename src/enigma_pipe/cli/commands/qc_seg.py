@@ -70,6 +70,7 @@ def qc_seg_main(
             processing_mode,
             existing_output,
             extensions=("brainmask.mgz",),
+            prune_fastsurfer=False,
         )
     except Exception as e:
         print_error(f"Validation error: {e}")

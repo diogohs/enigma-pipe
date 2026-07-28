@@ -25,6 +25,7 @@ def discover_cases(
     processing_mode: ProcessingMode,
     existing_output: ExistingOutputPolicy,
     extensions: tuple = (".nii.gz", ".nii", ".mgz"),
+    prune_fastsurfer: bool = True,
 ) -> DiscoveryResult:
     """
     Traverse input_dir deterministically and yield eligible cases.
@@ -44,7 +45,7 @@ def discover_cases(
         dirs.sort()
 
         # Stop traversing into FastSurfer output directories (heuristic: presence of 'mri' dir)
-        if "mri" in dirs and "scripts" in dirs:
+        if prune_fastsurfer and "mri" in dirs and "scripts" in dirs:
             dirs[:] = []
             continue
 
