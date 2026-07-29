@@ -16,16 +16,16 @@ from enigma_pipe.services.mriqc import MRIQCRunner
 
 @app.command(name="mriqc", help="Automated Image Quality Assessment via MRIQC")
 def mriqc_main(
-    bids_dir: Path = typer.Argument(
-        ..., help="BIDS dataset directory", exists=True, file_okay=False, dir_okay=True
+    input_dir: Path = typer.Argument(
+        ..., help="Input dir in BIDS dataset format.", exists=True, file_okay=False, dir_okay=True
     ),
     output_dir: Path = typer.Argument(..., help="Output directory", file_okay=False, dir_okay=True),
     work_dir: Path | None = typer.Argument(
-        None, help="Work/scratch directory", file_okay=False, dir_okay=True
+        None, help="Work/scratch directory (optional)", file_okay=False, dir_okay=True
     ),
-    execution_mode: str = typer.Option("docker", "--execution-mode", help="docker or singularity"),
+    execution_mode: str = typer.Option("docker", "--execution-mode", help="docker, apptainer or singularity"),
     participant_label: list[str] | None = typer.Option(
-        None, "--participant-label", help="List of participants to run"
+        None, "--participant-label", help="List of participants to run (optional)"
     ),
     n_procs: int | None = typer.Option(None, "--nprocs", help="Number of processors to use"),
 ):
@@ -35,7 +35,7 @@ def mriqc_main(
         print_error(str(e))
         raise typer.Exit(3)
 
-    print_info(f"Starting MRIQC on {bids_dir}")
+    print_info(f"Starting MRIQC on {input_dir}")
 
     # BIDS Validation (FR-019, FR-028)
     try:
@@ -44,7 +44,7 @@ def mriqc_main(
         # Validate BIDS dataset using BIDSLayout. It warns on issues.
         # We can capture warnings if we want, but BIDSLayout emits them by default.
         # Let's explicitly try to load with validate=True and catch exceptions or print warning.
-        layout = bids.BIDSLayout(str(bids_dir), validate=True)
+        layout = bids.BIDSLayout(str(input_dir), validate=True)
         print_info("BIDS validation passed (no critical errors).")
     except Exception as e:
         print_warning(f"BIDS validation found issues: {e}")
@@ -53,7 +53,7 @@ def mriqc_main(
 
     try:
         retcode = runner.run_bids_dataset(
-            bids_dir, output_dir, work_dir, participant_label, n_procs
+            input_dir, output_dir, work_dir, participant_label, n_procs
         )
 
         status = TerminalStatus.SUCCESS if retcode == 0 else TerminalStatus.FAILED
