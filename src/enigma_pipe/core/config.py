@@ -14,16 +14,6 @@ def default_reviewer_id() -> str:
         return "unknown_reviewer"
 
 
-class SlicerSettings(BaseModel):
-    alpha: float = Field(default=0.5, ge=0.0, le=1.0)
-    step_size: int = 1
-    padding: int = 10
-    max_longest_side: int = 240
-    format: str = "jpeg"
-    neurological_orientation: bool = True
-    skip_empty: bool = False
-    image_source: str = "mri/brainmask.mgz"
-    model_config = ConfigDict(extra="forbid")
 
 
 class AppSettings(BaseSettings):
@@ -38,7 +28,7 @@ class AppSettings(BaseSettings):
             SegmentationType.CEREBNET,
         ]
     )
-    slicer: SlicerSettings = Field(default_factory=SlicerSettings)
+
 
     model_config = SettingsConfigDict(
         env_prefix="ENIGMA_PIPE_", env_nested_delimiter="__", extra="forbid"

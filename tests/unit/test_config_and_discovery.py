@@ -7,8 +7,7 @@ from enigma_pipe.services.case_discovery import discover_cases, is_hidden
 
 def test_load_settings_defaults():
     settings = load_settings()
-    assert settings.slicer.alpha == 0.5
-    assert settings.slicer.format == "jpeg"
+    assert len(settings.segmentation_to_eval) == 3
 
 
 def test_is_hidden():

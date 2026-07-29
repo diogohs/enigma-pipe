@@ -45,31 +45,16 @@ def slicer_main(
     existing_output: ExistingOutputPolicy = typer.Option(
         ExistingOutputPolicy.SKIP, "--existing-output", help="Existing output policy."
     ),
-    alpha: float | None = typer.Option(None, "--alpha", help="Overlay alpha blending (0.0-1.0). [default: 0.5]"),
-    step_size: int | None = typer.Option(None, "--step", help="Interval between consecutive slices (skip level). [default: 1]"),
-    padding: int | None = typer.Option(None, "--padding", help="Padding around the segmentation bounding box. [default: 10]"),
-    skip_empty: bool | None = typer.Option(None, "--skip-empty", help="Skip slices where segmentation and image are both empty. [default: False]"),
-    fmt: str | None = typer.Option(None, "--format", help="Output image format (e.g., png, jpeg, jpg). [default: jpeg]"),
-    neurological_orientation: bool | None = typer.Option(None, "--neurological-orientation", help="Use neurological orientation. [default: True]"),
-    image_source: str | None = typer.Option(None, "--image-source", help="Image source path relative to case root. [default: mri/brainmask.mgz]"),
-    max_longest_side: int | None = typer.Option(None, "--max-longest-side", help="Maximum longest side of the image in pixels. [default: 240]"),
+    alpha: float = typer.Option(0.5, "--alpha", help="Overlay alpha blending (0.0-1.0)."),
+    step_size: int = typer.Option(1, "--step", help="Interval between consecutive slices (skip level)."),
+    padding: int = typer.Option(10, "--padding", help="Padding around the segmentation bounding box."),
+    skip_empty: bool = typer.Option(False, "--skip-empty", help="Skip slices where segmentation and image are both empty."),
+    fmt: str = typer.Option("jpeg", "--format", help="Output image format (e.g., png, jpeg, jpg)."),
+    neurological_orientation: bool = typer.Option(True, "--neurological-orientation", help="Use neurological orientation."),
+    image_source: str = typer.Option("mri/brainmask.mgz", "--image-source", help="Image source path relative to case root."),
+    max_longest_side: int = typer.Option(240, "--max-longest-side", help="Maximum longest side of the image in pixels."),
 ):
     settings = load_settings(state.settings_path)
-
-    # Apply CLI overrides to settings (filtering out None values to preserve YAML configs)
-    cli_overrides = {
-        "alpha": alpha,
-        "step_size": step_size,
-        "padding": padding,
-        "skip_empty": skip_empty,
-        "format": fmt,
-        "neurological_orientation": neurological_orientation,
-        "image_source": image_source,
-        "max_longest_side": max_longest_side,
-    }
-    settings.slicer = settings.slicer.model_copy(
-        update={k: v for k, v in cli_overrides.items() if v is not None}
-    )
 
     try:
         cases = discover_cases(
@@ -128,7 +113,7 @@ def slicer_main(
             started = datetime.now(timezone.utc)
 
             case_root = case.original_path.parent.parent
-            t1_path = case_root / settings.slicer.image_source
+            t1_path = case_root / image_source
 
             if not t1_path.exists():
                 print_error(f"Image source not found: {t1_path}. Skipping case {case.id}.")
@@ -207,13 +192,13 @@ def slicer_main(
                             output_dir,
                             case.id,
                             lut,
-                            skip_level=settings.slicer.step_size,
-                            padding=settings.slicer.padding,
-                            skip_empty=settings.slicer.skip_empty,
-                            fmt=settings.slicer.format,
-                            alpha=settings.slicer.alpha,
-                            max_longest_side=settings.slicer.max_longest_side,
-                            neurological_orientation=settings.slicer.neurological_orientation,
+                            skip_level=step_size,
+                            padding=padding,
+                            skip_empty=skip_empty,
+                            fmt=fmt,
+                            alpha=alpha,
+                            max_longest_side=max_longest_side,
+                            neurological_orientation=neurological_orientation,
                         )
 
                         generated_outputs.extend(captures)
