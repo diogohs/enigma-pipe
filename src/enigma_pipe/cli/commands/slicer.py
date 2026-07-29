@@ -45,34 +45,31 @@ def slicer_main(
     existing_output: ExistingOutputPolicy = typer.Option(
         ExistingOutputPolicy.SKIP, "--existing-output", help="Existing output policy."
     ),
-    alpha: float | None = typer.Option(None, "--alpha", help="Overlay alpha blending (0.0-1.0)."),
-    step_size: int | None = typer.Option(None, "--step", help="Interval between consecutive slices (skip level). Default: 1."),
-    padding: int | None = typer.Option(None, "--padding", help="Padding around the segmentation bounding box. Default: 10."),
-    skip_empty: bool | None = typer.Option(None, "--skip-empty", help="Skip slices where segmentation and image are both empty"),
-    fmt: str | None = typer.Option(None, "--format", help="Output image format (e.g., png, jpeg, jpg). Default: jpeg."),
-    neurological_orientation: bool | None = typer.Option(None, "--neurological-orientation", help="Use neurological orientation. Default: True."),
-    image_source: str | None = typer.Option(None, "--image-source", help="Image source path relative to case root. Default: mri/brainmask.mgz."),
-    max_longest_side: int | None = typer.Option(None, "--max-longest-side", help="Maximum longest side of the image in pixels. Default: 240."),
+    alpha: float | None = typer.Option(None, "--alpha", help="Overlay alpha blending (0.0-1.0). [default: 0.5]"),
+    step_size: int | None = typer.Option(None, "--step", help="Interval between consecutive slices (skip level). [default: 1]"),
+    padding: int | None = typer.Option(None, "--padding", help="Padding around the segmentation bounding box. [default: 10]"),
+    skip_empty: bool | None = typer.Option(None, "--skip-empty", help="Skip slices where segmentation and image are both empty. [default: False]"),
+    fmt: str | None = typer.Option(None, "--format", help="Output image format (e.g., png, jpeg, jpg). [default: jpeg]"),
+    neurological_orientation: bool | None = typer.Option(None, "--neurological-orientation", help="Use neurological orientation. [default: True]"),
+    image_source: str | None = typer.Option(None, "--image-source", help="Image source path relative to case root. [default: mri/brainmask.mgz]"),
+    max_longest_side: int | None = typer.Option(None, "--max-longest-side", help="Maximum longest side of the image in pixels. [default: 240]"),
 ):
     settings = load_settings(state.settings_path)
 
-    # Apply CLI overrides to settings
-    if alpha is not None:
-        settings.slicer.alpha = alpha
-    if step_size is not None:
-        settings.slicer.step_size = step_size
-    if padding is not None:
-        settings.slicer.padding = padding
-    if skip_empty is not None:
-        settings.slicer.skip_empty = skip_empty
-    if fmt is not None:
-        settings.slicer.format = fmt
-    if neurological_orientation is not None:
-        settings.slicer.neurological_orientation = neurological_orientation
-    if image_source is not None:
-        settings.slicer.image_source = image_source
-    if max_longest_side is not None:
-        settings.slicer.max_longest_side = max_longest_side
+    # Apply CLI overrides to settings (filtering out None values to preserve YAML configs)
+    cli_overrides = {
+        "alpha": alpha,
+        "step_size": step_size,
+        "padding": padding,
+        "skip_empty": skip_empty,
+        "format": fmt,
+        "neurological_orientation": neurological_orientation,
+        "image_source": image_source,
+        "max_longest_side": max_longest_side,
+    }
+    settings.slicer = settings.slicer.model_copy(
+        update={k: v for k, v in cli_overrides.items() if v is not None}
+    )
 
     try:
         cases = discover_cases(

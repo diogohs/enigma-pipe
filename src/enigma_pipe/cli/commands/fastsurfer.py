@@ -40,7 +40,7 @@ def fastsurfer_main(
         "cpu", "--device", help="Compute device for neural network inference ('cpu', 'gpu', or 'cuda')"
     ),
     threads: str | None = typer.Option(None, "--threads", help="Thread count or 'max'"),
-    backend: str = typer.Option("local", "--backend", help="Execution backend (local or hpc)"),
+    # backend: str = typer.Option("local", "--backend", help="Execution backend (local or hpc)"),
     no_asegdkt: bool = typer.Option(False, "--no-asegdkt", help="Skip asegdkt (whole brain segmentation) segmentation"),
     no_cc: bool = typer.Option(False, "--no-cc", help="Skip corpus callosum segmentation"),
     no_cereb: bool = typer.Option(False, "--no-cereb", help="Skip cerebellum segmentation"),
@@ -56,9 +56,9 @@ def fastsurfer_main(
         print_error("FreeSurfer license is required. Provide via --fs-license or settings.")
         raise typer.Exit(3)
 
-    if backend.lower() == "hpc":
-        print_error("HPC scheduler submission is not yet implemented.")
-        raise typer.Exit(3)
+    # if backend.lower() == "hpc":
+    #     print_error("HPC scheduler submission is not yet implemented.")
+    #     raise typer.Exit(3)
 
     # Phase 2: Host dependencies (Brainstem segmentation)
     FreeSurferChecker.check_availability()
