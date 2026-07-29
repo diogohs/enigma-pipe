@@ -139,7 +139,12 @@ def generate_captures(
             img = apply_overlay(bg_slice, seg_slice, lut, alpha)
 
             if max_longest_side > 0:
-                img.thumbnail((max_longest_side, max_longest_side))
+                w, h = img.size
+                if max(w, h) != max_longest_side:
+                    scale = max_longest_side / max(w, h)
+                    new_w = int(w * scale)
+                    new_h = int(h * scale)
+                    img = img.resize((new_w, new_h), resample=Image.Resampling.NEAREST)
 
             # Determine labels
             if axis == 0:
@@ -157,9 +162,10 @@ def generate_captures(
                 else:
                     labels = {"top": "L", "bottom": "R", "left": "P", "right": "A"}
 
-            # Draw labels and slice number directly on image
-            draw = ImageDraw.Draw(img)
-            w, h = img.size
+            # Draw labels and slice number on a copy for the standalone file
+            img_labeled = img.copy()
+            draw = ImageDraw.Draw(img_labeled)
+            w, h = img_labeled.size
             
             def draw_text(pos, text, align="center"):
                 tw = draw.textlength(text) if hasattr(draw, "textlength") else len(text) * 6
@@ -192,8 +198,8 @@ def generate_captures(
                 out_path = output_dir / case_id / filename
                 rel_path = filename
                 
-            img.save(out_path)
-            plane_images.append((img, s))
+            img_labeled.save(out_path)
+            plane_images.append((img, s, labels))
             generated_files.append(rel_path)
 
         if plane_images:
@@ -219,7 +225,7 @@ def generate_captures(
                 f'<svg width="{grid_w}" height="{grid_h}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">'
             ]
             
-            for i, (p_img, p_idx) in enumerate(plane_images):
+            for i, (p_img, p_idx, p_labels) in enumerate(plane_images):
                 row = i // ncols
                 col = i % ncols
                 x = col * img_w
@@ -232,6 +238,13 @@ def generate_captures(
                 
                 svg_content.append(f'  <g transform="translate({x}, {y})">')
                 svg_content.append(f'    <image href="{b64}" width="{img_w}" height="{img_h}" style="image-rendering: optimizeSpeed; image-rendering: pixelated; image-rendering: crisp-edges;" />')
+                
+                # Reconstruct vectorized text in SVG
+                svg_content.append(f'    <text x="{img_w/2}" y="12" fill="white" font-size="12" font-family="sans-serif" font-weight="bold" text-anchor="middle" stroke="black" stroke-width="2" paint-order="stroke fill">{p_labels["top"]}</text>')
+                svg_content.append(f'    <text x="{img_w/2}" y="{img_h - 4}" fill="white" font-size="12" font-family="sans-serif" font-weight="bold" text-anchor="middle" stroke="black" stroke-width="2" paint-order="stroke fill">{p_labels["bottom"]}</text>')
+                svg_content.append(f'    <text x="12" y="{img_h/2 + 4}" fill="white" font-size="12" font-family="sans-serif" font-weight="bold" text-anchor="middle" stroke="black" stroke-width="2" paint-order="stroke fill">{p_labels["left"]}</text>')
+                svg_content.append(f'    <text x="{img_w - 12}" y="{img_h/2 + 4}" fill="white" font-size="12" font-family="sans-serif" font-weight="bold" text-anchor="middle" stroke="black" stroke-width="2" paint-order="stroke fill">{p_labels["right"]}</text>')
+                svg_content.append(f'    <text x="{img_w - 4}" y="{img_h - 4}" fill="white" font-size="12" font-family="sans-serif" font-weight="bold" text-anchor="end" stroke="black" stroke-width="2" paint-order="stroke fill">Slice {p_idx}</text>')
                 svg_content.append('  </g>')
             
             svg_content.append('</svg>')
