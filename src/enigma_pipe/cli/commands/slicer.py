@@ -7,7 +7,7 @@ import nibabel as nib
 import typer
 
 from enigma_pipe.cli.commands.qc_seg import resolve_seg_file
-from enigma_pipe.cli.formatting import print_error, print_info, print_json_summary, print_warning
+from enigma_pipe.cli.formatting import print_error, print_info, print_json_summary, print_warning, setup_logging
 from enigma_pipe.cli.main import app, state
 from enigma_pipe.core.config import load_settings
 from enigma_pipe.core.manifest import CompletionManifest, write_manifest
@@ -68,6 +68,7 @@ def slicer_main(
         240, "--max-longest-side", help="Maximum longest side of the image in pixels."
     ),
 ):
+    setup_logging(output_dir)
     settings = load_settings(state.settings_path)
 
     try:

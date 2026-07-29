@@ -4,7 +4,7 @@ from pathlib import Path
 import typer
 from rich.prompt import IntPrompt, Prompt
 
-from enigma_pipe.cli.formatting import print_error, print_info, print_json_summary
+from enigma_pipe.cli.formatting import print_error, print_info, print_json_summary, setup_logging
 from enigma_pipe.cli.main import app, state
 from enigma_pipe.core.config import load_settings
 from enigma_pipe.core.manifest import CompletionManifest, write_manifest
@@ -30,6 +30,7 @@ def qc_img_main(
         None, "--reviewer-id", help="Reviewer ID (defaults to OS user)"
     ),
 ):
+    setup_logging(output_dir)
     settings = load_settings(state.settings_path)
 
     # Precedence: CLI > YAML (default OS user is handled in config)

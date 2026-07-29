@@ -50,7 +50,7 @@ def test_fastsurfer_skip_version_check(tmp_path, monkeypatch):
     result1 = runner.invoke(
         app, ["fastsurfer", "--fs-license", str(fs_license), str(input_dir), str(out_dir)]
     )
-    assert "below the minimum supported version" in result1.output
+    assert "below the minimum" in result1.output
 
     # Run WITH skip_version_check
     result2 = runner.invoke(

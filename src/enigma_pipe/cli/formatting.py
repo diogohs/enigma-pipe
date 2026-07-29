@@ -1,20 +1,46 @@
 import json
 
+import logging
+from datetime import datetime
+from pathlib import Path
+
 from rich.console import Console
+from rich.logging import RichHandler
 
 console = Console(stderr=True)
 
+logger = logging.getLogger("enigma_pipe")
+logger.setLevel(logging.INFO)
+
+console_handler = RichHandler(console=console, show_time=True, show_path=False, markup=True)
+console_handler.setFormatter(logging.Formatter("%(message)s"))
+logger.addHandler(console_handler)
+
+
+def setup_logging(output_dir: Path):
+    """Set up file logging to output_dir/logs/enigma-pipe-YYYY-MM-DD-HHMMSS.log."""
+    logs_dir = output_dir / "logs"
+    logs_dir.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
+    log_file = logs_dir / f"enigma-pipe-{timestamp}.log"
+
+    file_handler = logging.FileHandler(log_file)
+    file_handler.setLevel(logging.INFO)
+    file_formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+    file_handler.setFormatter(file_formatter)
+    logger.addHandler(file_handler)
+
 
 def print_error(msg: str):
-    console.print(f"[bold red]Error:[/bold red] {msg}")
+    logger.error(msg)
 
 
 def print_warning(msg: str):
-    console.print(f"[bold yellow]Warning:[/bold yellow] {msg}")
+    logger.warning(msg)
 
 
 def print_info(msg: str):
-    console.print(f"[bold blue]Info:[/bold blue] {msg}")
+    logger.info(msg)
 
 
 def print_json_summary(

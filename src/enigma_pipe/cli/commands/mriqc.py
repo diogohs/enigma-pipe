@@ -3,7 +3,7 @@ from pathlib import Path
 
 import typer
 
-from enigma_pipe.cli.formatting import print_error, print_info, print_json_summary, print_warning
+from enigma_pipe.cli.formatting import print_error, print_info, print_json_summary, print_warning, setup_logging
 from enigma_pipe.cli.main import app, state
 from enigma_pipe.core.exceptions import MissingDependencyError
 from enigma_pipe.core.manifest import CompletionManifest, write_manifest
@@ -29,6 +29,7 @@ def mriqc_main(
     ),
     n_procs: int | None = typer.Option(None, "--nprocs", help="Number of processors to use (optional)."),
 ):
+    setup_logging(output_dir)
     try:
         runner = MRIQCRunner(mode=ExecutionMode(execution_mode))
     except MissingDependencyError as e:

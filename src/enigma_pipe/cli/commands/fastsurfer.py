@@ -3,7 +3,7 @@ from pathlib import Path
 
 import typer
 
-from enigma_pipe.cli.formatting import print_error, print_info, print_json_summary, print_warning
+from enigma_pipe.cli.formatting import print_error, print_info, print_json_summary, print_warning, setup_logging
 from enigma_pipe.cli.main import app, state
 from enigma_pipe.core.config import load_settings
 from enigma_pipe.core.exceptions import MissingDependencyError
@@ -49,6 +49,7 @@ def fastsurfer_main(
         False, "--skip-version-check", help="Bypass FastSurfer version check"
     ),
 ):
+    setup_logging(output_dir)
     settings = load_settings(state.settings_path)
     license_path = fs_license or settings.fs_license
 
