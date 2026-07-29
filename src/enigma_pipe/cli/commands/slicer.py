@@ -115,7 +115,7 @@ def slicer_main(
             try:
                 # Use as_file to handle potentially zipped environments
                 resource = importlib.resources.files("enigma_pipe.data").joinpath(
-                    "MNI152_T1_1mm.nii.gz"
+                    "mni_icbm152_t1_tal_nlin_sym_09c.nii"
                 )
                 if not resource.is_file():
                     raise FileNotFoundError
