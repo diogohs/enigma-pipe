@@ -19,15 +19,15 @@ def mriqc_main(
     input_dir: Path = typer.Argument(
         ..., help="Input dir in BIDS dataset format.", exists=True, file_okay=False, dir_okay=True
     ),
-    output_dir: Path = typer.Argument(..., help="Output directory", file_okay=False, dir_okay=True),
+    output_dir: Path = typer.Argument(..., help="Output directory.", file_okay=False, dir_okay=True),
     work_dir: Path | None = typer.Argument(
-        None, help="Work/scratch directory (optional)", file_okay=False, dir_okay=True
+        None, help="Work/scratch directory (optional).", file_okay=False, dir_okay=True
     ),
-    execution_mode: str = typer.Option("docker", "--execution-mode", help="docker, apptainer or singularity"),
+    execution_mode: str = typer.Option("docker", "--execution-mode", help="docker, apptainer or singularity."),
     participant_label: list[str] | None = typer.Option(
-        None, "--participant-label", help="List of participants to run (optional)"
+        None, "--participant-label", help="List of participants to run (optional)."
     ),
-    n_procs: int | None = typer.Option(None, "--nprocs", help="Number of processors to use"),
+    n_procs: int | None = typer.Option(None, "--nprocs", help="Number of processors to use (optional)."),
 ):
     try:
         runner = MRIQCRunner(mode=ExecutionMode(execution_mode))
@@ -48,7 +48,7 @@ def mriqc_main(
         print_info("BIDS validation passed (no critical errors).")
     except Exception as e:
         print_warning(f"BIDS validation found issues: {e}")
-        print_warning("Continuing attempt despite BIDS validation warnings per FR-019.")
+        # print_warning("Continuing attempt despite BIDS validation warnings per FR-019.")
     started = datetime.now(timezone.utc)
 
     try:
