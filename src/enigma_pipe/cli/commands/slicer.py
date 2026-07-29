@@ -6,8 +6,8 @@ from pathlib import Path
 import nibabel as nib
 import typer
 
-from enigma_pipe.cli.commands.qc_seg import SEG_FILES, resolve_seg_file
-from enigma_pipe.cli.formatting import print_error, print_info, print_json_summary
+from enigma_pipe.cli.commands.qc_seg import resolve_seg_file
+from enigma_pipe.cli.formatting import print_error, print_info, print_json_summary, print_warning
 from enigma_pipe.cli.main import app, state
 from enigma_pipe.core.config import load_settings
 from enigma_pipe.core.manifest import CompletionManifest, write_manifest
@@ -35,7 +35,9 @@ def slicer_main(
     output_dir: Path = typer.Argument(
         ..., help="Output directory for captures.", file_okay=False, dir_okay=True
     ),
-    mni_template: Path | None = typer.Option(None, "--mni-template", help="Path to MNI152 template (optional)."),
+    mni_template: Path | None = typer.Option(
+        None, "--mni-template", help="Path to MNI152 template (optional)."
+    ),
     lut_file: Path | None = typer.Option(
         None, "--lut", help="Path to specific LUT/colormap file (optional)."
     ),
@@ -46,13 +48,25 @@ def slicer_main(
         ExistingOutputPolicy.SKIP, "--existing-output", help="Existing output policy."
     ),
     alpha: float = typer.Option(0.5, "--alpha", help="Overlay alpha blending (0.0-1.0)."),
-    step_size: int = typer.Option(1, "--step", help="Interval between consecutive slices (skip level)."),
-    padding: int = typer.Option(10, "--padding", help="Padding around the segmentation bounding box."),
-    skip_empty: bool = typer.Option(False, "--skip-empty", help="Skip slices where segmentation and image are both empty."),
+    step_size: int = typer.Option(
+        1, "--step", help="Interval between consecutive slices (skip level)."
+    ),
+    padding: int = typer.Option(
+        10, "--padding", help="Padding around the segmentation bounding box."
+    ),
+    skip_empty: bool = typer.Option(
+        False, "--skip-empty", help="Skip slices where segmentation and image are both empty."
+    ),
     fmt: str = typer.Option("jpeg", "--format", help="Output image format (e.g., png, jpeg, jpg)."),
-    neurological_orientation: bool = typer.Option(True, "--neurological-orientation", help="Use neurological orientation."),
-    image_source: str = typer.Option("mri/brainmask.mgz", "--image-source", help="Image source path relative to case root."),
-    max_longest_side: int = typer.Option(240, "--max-longest-side", help="Maximum longest side of the image in pixels."),
+    neurological_orientation: bool = typer.Option(
+        True, "--neurological-orientation", help="Use neurological orientation."
+    ),
+    image_source: str = typer.Option(
+        "mri/brainmask.mgz", "--image-source", help="Image source path relative to case root."
+    ),
+    max_longest_side: int = typer.Option(
+        240, "--max-longest-side", help="Maximum longest side of the image in pixels."
+    ),
 ):
     settings = load_settings(state.settings_path)
 
@@ -99,7 +113,9 @@ def slicer_main(
         if not actual_mni:
             try:
                 # Use as_file to handle potentially zipped environments
-                resource = importlib.resources.files("enigma_pipe.data").joinpath("MNI152_T1_1mm.nii.gz")
+                resource = importlib.resources.files("enigma_pipe.data").joinpath(
+                    "MNI152_T1_1mm.nii.gz"
+                )
                 if not resource.is_file():
                     raise FileNotFoundError
                 actual_mni = stack.enter_context(importlib.resources.as_file(resource))
@@ -149,7 +165,10 @@ def slicer_main(
                         else:
                             lut_candidates = []
                             if seg_type == SegmentationType.ASEG:
-                                lut_candidates = ["FastSurfer_ColorLUT.tsv", "FreeSurferColorLUT.txt"]
+                                lut_candidates = [
+                                    "FastSurfer_ColorLUT.tsv",
+                                    "FreeSurferColorLUT.txt",
+                                ]
                             elif seg_type == SegmentationType.CEREBNET:
                                 lut_candidates = ["CerebNet_ColorLUT.tsv", "FreeSurferColorLUT.txt"]
                             else:

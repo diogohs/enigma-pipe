@@ -1,7 +1,7 @@
 import getpass
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from enigma_pipe.core.models import ExecutionMode, SegmentationType
@@ -12,8 +12,6 @@ def default_reviewer_id() -> str:
         return getpass.getuser()
     except Exception:
         return "unknown_reviewer"
-
-
 
 
 class AppSettings(BaseSettings):
@@ -28,7 +26,6 @@ class AppSettings(BaseSettings):
             SegmentationType.CEREBNET,
         ]
     )
-
 
     model_config = SettingsConfigDict(
         env_prefix="ENIGMA_PIPE_", env_nested_delimiter="__", extra="forbid"
