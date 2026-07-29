@@ -45,17 +45,23 @@ def slicer_main(
     existing_output: ExistingOutputPolicy = typer.Option(
         ExistingOutputPolicy.SKIP, "--existing-output", help="Existing output policy."
     ),
-    alpha: float | None = typer.Option(None, "--alpha", help="Overlay alpha blending (0.0 to 1.0)."),
-    slices_per_plane: int | None = typer.Option(None, "--slices", help="Number of slices to capture per anatomical plane (axial, coronal, sagittal)."),
-    fmt: str | None = typer.Option(None, "--format", help="Output image format."),
+    alpha: float | None = typer.Option(None, "--alpha", help="Overlay alpha blending"),
+    step_size: int | None = typer.Option(None, "--step", help="Interval between consecutive slices (skip level). Default: 1"),
+    padding: int | None = typer.Option(None, "--padding", help="Padding around the segmentation bounding box. Default: 10"),
+    skip_empty: bool | None = typer.Option(None, "--skip-empty/--no-skip-empty", help="Skip slices where segmentation is empty. Default: True"),
+    fmt: str | None = typer.Option(None, "--format", help="Output image format"),
 ):
     settings = load_settings(state.settings_path)
 
     # Apply CLI overrides to settings
     if alpha is not None:
         settings.slicer.alpha = alpha
-    if slices_per_plane is not None:
-        settings.slicer.slices_per_plane = slices_per_plane
+    if step_size is not None:
+        settings.slicer.step_size = step_size
+    if padding is not None:
+        settings.slicer.padding = padding
+    if skip_empty is not None:
+        settings.slicer.skip_empty = skip_empty
     if fmt is not None:
         settings.slicer.format = fmt
 
@@ -190,7 +196,9 @@ def slicer_main(
                             output_dir,
                             case.id,
                             lut,
-                            slices_per_plane=settings.slicer.slices_per_plane,
+                            skip_level=settings.slicer.step_size,
+                            padding=settings.slicer.padding,
+                            skip_empty=settings.slicer.skip_empty,
                             fmt=settings.slicer.format,
                             alpha=settings.slicer.alpha,
                         )

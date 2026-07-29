@@ -19,6 +19,7 @@ def apply_overlay(
     bg: np.ndarray, seg: np.ndarray, lut: dict[int, tuple[int, int, int]], alpha: float = 0.5
 ) -> Image.Image:
     """Apply segmentation overlay with erosion and colors from LUT."""
+    import colorsys
     h, w = bg.shape
     out = np.zeros((h, w, 3), dtype=np.uint8)
 
@@ -29,11 +30,16 @@ def apply_overlay(
     unique_labels = np.unique(seg)
     unique_labels = unique_labels[unique_labels != 0]  # exclude bg
 
-    for label in unique_labels:
-        if label not in lut:
-            continue
+    for idx, label in enumerate(unique_labels):
+        if not lut:
+            hue = (idx * 137.508) % 360 / 360.0
+            r, g, b = colorsys.hls_to_rgb(hue, 0.6, 0.9)
+            color = np.array([int(r*255), int(g*255), int(b*255)])
+        else:
+            if label not in lut:
+                continue
+            color = np.array(lut[label])
 
-        color = np.array(lut[label])
         mask = seg == label
 
         # 1-pixel erosion
@@ -61,7 +67,9 @@ def generate_captures(
     output_dir: Path,
     case_id: str,
     lut: dict[int, tuple[int, int, int]],
-    slices_per_plane: int = 8,
+    skip_level: int = 1,
+    padding: int = 10,
+    skip_empty: bool = True,
     fmt: str = "jpeg",
     alpha: float = 0.5,
 ) -> list[str]:
@@ -73,9 +81,14 @@ def generate_captures(
     if len(coords[0]) == 0:
         return []
 
-    min_x, max_x = coords[0].min(), coords[0].max()
-    min_y, max_y = coords[1].min(), coords[1].max()
-    min_z, max_z = coords[2].min(), coords[2].max()
+    dim_x, dim_y, dim_z = t1_data.shape
+
+    min_x = max(0, coords[0].min() - padding)
+    max_x = min(dim_x, coords[0].max() + padding + 1)
+    min_y = max(0, coords[1].min() - padding)
+    max_y = min(dim_y, coords[1].max() + padding + 1)
+    min_z = max(0, coords[2].min() - padding)
+    max_z = min(dim_z, coords[2].max() + padding + 1)
 
     planes = [
         ("sagittal", 0, min_x, max_x),
@@ -84,13 +97,15 @@ def generate_captures(
     ]
 
     generated_files = []
+    
+    step = 1 if skip_level == 0 else max(1, skip_level)
 
     for plane_name, axis, pmin, pmax in planes:
-        # Sample evenly spaced slices
+        # Sample slices based on skip_level
         if pmax <= pmin:
             continue
-        step = max(1, (pmax - pmin) // (slices_per_plane + 1))
-        indices = list(range(pmin + step, pmax, step))[:slices_per_plane]
+        
+        indices = list(range(pmin, pmax, step))
 
         for idx, s in enumerate(indices):
             if axis == 0:
@@ -102,6 +117,9 @@ def generate_captures(
             else:
                 bg_slice = bg_norm[:, :, s]
                 seg_slice = seg_data[:, :, s]
+
+            if skip_empty and not np.any(seg_slice):
+                continue
 
             # Neurological orientation (rotate 90 degrees)
             bg_slice = np.rot90(bg_slice)

@@ -16,7 +16,8 @@ def default_reviewer_id() -> str:
 
 class SlicerSettings(BaseModel):
     alpha: float = Field(default=0.5, ge=0.0, le=1.0)
-    slices_per_plane: int = 8
+    step_size: int = 1
+    padding: int = 10
     max_longest_side: int = 240
     format: str = "jpeg"
     orientation: str = "neurological"
