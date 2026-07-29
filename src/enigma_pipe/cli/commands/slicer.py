@@ -207,7 +207,7 @@ def slicer_main(
 
                         seg_mni = apply_transform(tmp_seg, transform, actual_mni, is_labels=True)
 
-                        case_out_dir = output_dir / case.id
+                        case_out_dir = output_dir / case.id / seg_type.value
                         case_out_dir.mkdir(parents=True, exist_ok=True)
 
                         captures = generate_captures(
@@ -215,6 +215,7 @@ def slicer_main(
                             seg_mni,
                             output_dir,
                             case.id,
+                            seg_type.value,
                             lut,
                             skip_level=step_size,
                             padding=padding,

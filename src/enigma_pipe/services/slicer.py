@@ -1,3 +1,5 @@
+import base64
+from io import BytesIO
 from pathlib import Path
 
 import numpy as np
@@ -66,6 +68,7 @@ def generate_captures(
     seg_data: np.ndarray,
     output_dir: Path,
     case_id: str,
+    seg_type_name: str,
     lut: dict[int, tuple[int, int, int]],
     skip_level: int = 1,
     padding: int = 10,
@@ -75,7 +78,7 @@ def generate_captures(
     max_longest_side: int = 240,
     neurological_orientation: bool = True,
 ) -> list[str]:
-    """Generate and save PNG/JPEG captures."""
+    """Generate and save PNG/JPEG captures and SVG matrices."""
     bg_norm = normalize_image(t1_data)
 
     # Dynamic FOV
@@ -108,6 +111,7 @@ def generate_captures(
             continue
         
         indices = list(range(pmin, pmax, step))
+        plane_images = []
 
         for idx, s in enumerate(indices):
             if axis == 0:
@@ -133,9 +137,60 @@ def generate_captures(
             if max_longest_side > 0:
                 img.thumbnail((max_longest_side, max_longest_side))
 
-            filename = f"{plane_name}_{idx + 1}.{fmt}"
-            out_path = output_dir / case_id / filename
+            filename = f"{plane_name}_{s}.{fmt}"
+            if seg_type_name:
+                out_path = output_dir / case_id / seg_type_name / filename
+                rel_path = f"{seg_type_name}/{filename}"
+            else:
+                out_path = output_dir / case_id / filename
+                rel_path = filename
+                
             img.save(out_path)
-            generated_files.append(filename)
+            plane_images.append((img, s))
+            generated_files.append(rel_path)
+
+        if plane_images:
+            svg_filename = f"{plane_name}.svg"
+            if seg_type_name:
+                svg_out_path = output_dir / case_id / seg_type_name / svg_filename
+                rel_svg_path = f"{seg_type_name}/{svg_filename}"
+            else:
+                svg_out_path = output_dir / case_id / svg_filename
+                rel_svg_path = svg_filename
+                
+            N = len(plane_images)
+            ncols = min(10, int(np.ceil(np.sqrt(N))))
+            if ncols == 0:
+                ncols = 1
+            nrows = int(np.ceil(N / ncols))
+            
+            img_w, img_h = plane_images[0][0].size
+            grid_w = ncols * img_w
+            grid_h = nrows * img_h
+            
+            svg_content = [
+                f'<svg width="{grid_w}" height="{grid_h}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">'
+            ]
+            
+            for i, (p_img, p_idx) in enumerate(plane_images):
+                row = i // ncols
+                col = i % ncols
+                x = col * img_w
+                y = row * img_h
+                
+                buffered = BytesIO()
+                p_img.save(buffered, format=fmt.upper() if fmt.lower() != "jpg" else "JPEG")
+                img_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
+                b64 = f"data:image/{fmt.lower()};base64,{img_str}"
+                
+                svg_content.append(f'  <g transform="translate({x}, {y})">')
+                svg_content.append(f'    <image href="{b64}" width="{img_w}" height="{img_h}" />')
+                svg_content.append(f'    <rect x="{x}" y="{y}" width="60" height="25" fill="black" fill-opacity="0.5"/>')
+                svg_content.append(f'    <text x="5" y="18" fill="white" font-size="14" font-family="sans-serif">Slice {p_idx}</text>')
+                svg_content.append('  </g>')
+            
+            svg_content.append('</svg>')
+            svg_out_path.write_text("\n".join(svg_content), encoding="utf-8")
+            generated_files.append(rel_svg_path)
 
     return generated_files
