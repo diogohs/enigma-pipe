@@ -72,6 +72,8 @@ def generate_captures(
     skip_empty: bool = True,
     fmt: str = "jpeg",
     alpha: float = 0.5,
+    max_longest_side: int = 240,
+    neurological_orientation: bool = True,
 ) -> list[str]:
     """Generate and save PNG/JPEG captures."""
     bg_norm = normalize_image(t1_data)
@@ -118,17 +120,18 @@ def generate_captures(
                 bg_slice = bg_norm[:, :, s]
                 seg_slice = seg_data[:, :, s]
 
-            if skip_empty and not np.any(seg_slice):
+            if skip_empty and not np.any(seg_slice) and not np.any(bg_slice):
                 continue
 
-            # Neurological orientation (rotate 90 degrees)
-            bg_slice = np.rot90(bg_slice)
-            seg_slice = np.rot90(seg_slice)
+            if neurological_orientation:
+                # Neurological orientation (rotate 90 degrees)
+                bg_slice = np.rot90(bg_slice)
+                seg_slice = np.rot90(seg_slice)
 
             img = apply_overlay(bg_slice, seg_slice, lut, alpha)
 
-            # max longest side
-            img.thumbnail((240, 240))
+            if max_longest_side > 0:
+                img.thumbnail((max_longest_side, max_longest_side))
 
             filename = f"{plane_name}_{idx + 1}.{fmt}"
             out_path = output_dir / case_id / filename

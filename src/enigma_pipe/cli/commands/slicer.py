@@ -35,9 +35,9 @@ def slicer_main(
     output_dir: Path = typer.Argument(
         ..., help="Output directory for captures.", file_okay=False, dir_okay=True
     ),
-    mni_template: Path | None = typer.Option(None, "--mni", help="Path to MNI152 template (optional if internal is present)"),
+    mni_template: Path | None = typer.Option(None, "--mni-template", help="Path to MNI152 template (optional)."),
     lut_file: Path | None = typer.Option(
-        None, "--lut", help="Path to specific LUT file (optional)."
+        None, "--lut", help="Path to specific LUT/colormap file (optional)."
     ),
     processing_mode: ProcessingMode = typer.Option(
         ProcessingMode.ALL, "--processing-mode", help="Case selection mode."
@@ -45,11 +45,14 @@ def slicer_main(
     existing_output: ExistingOutputPolicy = typer.Option(
         ExistingOutputPolicy.SKIP, "--existing-output", help="Existing output policy."
     ),
-    alpha: float | None = typer.Option(None, "--alpha", help="Overlay alpha blending"),
-    step_size: int | None = typer.Option(None, "--step", help="Interval between consecutive slices (skip level). Default: 1"),
-    padding: int | None = typer.Option(None, "--padding", help="Padding around the segmentation bounding box. Default: 10"),
-    skip_empty: bool | None = typer.Option(None, "--skip-empty/--no-skip-empty", help="Skip slices where segmentation is empty. Default: True"),
-    fmt: str | None = typer.Option(None, "--format", help="Output image format"),
+    alpha: float | None = typer.Option(None, "--alpha", help="Overlay alpha blending (0.0-1.0)."),
+    step_size: int | None = typer.Option(None, "--step", help="Interval between consecutive slices (skip level). Default: 1."),
+    padding: int | None = typer.Option(None, "--padding", help="Padding around the segmentation bounding box. Default: 10."),
+    skip_empty: bool | None = typer.Option(None, "--skip-empty", help="Skip slices where segmentation and image are both empty"),
+    fmt: str | None = typer.Option(None, "--format", help="Output image format (e.g., png, jpeg, jpg). Default: jpeg."),
+    neurological_orientation: bool | None = typer.Option(None, "--neurological-orientation", help="Use neurological orientation. Default: True."),
+    image_source: str | None = typer.Option(None, "--image-source", help="Image source path relative to case root. Default: mri/brainmask.mgz."),
+    max_longest_side: int | None = typer.Option(None, "--max-longest-side", help="Maximum longest side of the image in pixels. Default: 240."),
 ):
     settings = load_settings(state.settings_path)
 
@@ -64,6 +67,12 @@ def slicer_main(
         settings.slicer.skip_empty = skip_empty
     if fmt is not None:
         settings.slicer.format = fmt
+    if neurological_orientation is not None:
+        settings.slicer.neurological_orientation = neurological_orientation
+    if image_source is not None:
+        settings.slicer.image_source = image_source
+    if max_longest_side is not None:
+        settings.slicer.max_longest_side = max_longest_side
 
     try:
         cases = discover_cases(
@@ -122,7 +131,12 @@ def slicer_main(
             started = datetime.now(timezone.utc)
 
             case_root = case.original_path.parent.parent
-            t1_path = case.original_path  # brainmask.mgz
+            t1_path = case_root / settings.slicer.image_source
+
+            if not t1_path.exists():
+                print_error(f"Image source not found: {t1_path}. Skipping case {case.id}.")
+                results.append({"case_id": case.id, "status": TerminalStatus.FAILED.value})
+                continue
 
             try:
                 # 1. Convert to NIfTI & Reorient to RAS
@@ -201,6 +215,8 @@ def slicer_main(
                             skip_empty=settings.slicer.skip_empty,
                             fmt=settings.slicer.format,
                             alpha=settings.slicer.alpha,
+                            max_longest_side=settings.slicer.max_longest_side,
+                            neurological_orientation=settings.slicer.neurological_orientation,
                         )
 
                         generated_outputs.extend(captures)

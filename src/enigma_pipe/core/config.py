@@ -20,8 +20,8 @@ class SlicerSettings(BaseModel):
     padding: int = 10
     max_longest_side: int = 240
     format: str = "jpeg"
-    orientation: str = "neurological"
-    skip_empty: bool = True
+    neurological_orientation: bool = True
+    skip_empty: bool = False
     image_source: str = "mri/brainmask.mgz"
     model_config = ConfigDict(extra="forbid")
 
