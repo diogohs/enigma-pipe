@@ -185,13 +185,17 @@ def slicer_main(
                                     break
 
                         if not actual_lut_file or not actual_lut_file.exists():
+                            try:
+                                res_lut = importlib.resources.files("enigma_pipe.data").joinpath("FreeSurferColorLUT.txt")
+                                if res_lut.is_file():
+                                    actual_lut_file = stack.enter_context(importlib.resources.as_file(res_lut))
+                            except Exception:
+                                pass
+
+                        if not actual_lut_file or not Path(actual_lut_file).exists():
                             print_warning(
                                 f"LUT file for {seg_type.value} not found. Skipping coloring for case {case.id}."
                             )
-                            # For now we skip entirely or use a fallback. The spec says "skips coloring".
-                            # Let's pass an empty LUT to generate_captures so it handles it or skips.
-                            # Wait, generate_captures expects a Dict. If empty, it'll just render labels without colors?
-                            # Spec: "skips coloring ... rather than failing the case"
                             lut = {}
                         else:
                             lut = parse_freesurfer_lut(actual_lut_file)
