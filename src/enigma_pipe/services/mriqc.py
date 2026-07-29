@@ -12,31 +12,32 @@ class MRIQCRunner(ContainerRunner):
         self,
         bids_dir: Path,
         output_dir: Path,
-        work_dir: Path,
+        work_dir: Path | None = None,
         participant_label: list[str] | None = None,
         n_procs: int | None = None,
     ) -> int:
         """Run MRIQC participant level on a BIDS dataset."""
         output_dir.mkdir(parents=True, exist_ok=True)
-        work_dir.mkdir(parents=True, exist_ok=True)
 
         binds = [
             (bids_dir.resolve(), Path("/data")),
             (output_dir.resolve(), Path("/out")),
-            (work_dir.resolve(), Path("/work")),
         ]
 
         args = [
             "/data",
             "/out",
             "participant",
-            "-w",
-            "/work",
             "--no-sub",  # don't submit telemetry
             "-m",
             "T1w",
             "--no-datalad-get",
         ]
+        
+        if work_dir:
+            work_dir.mkdir(parents=True, exist_ok=True)
+            binds.append((work_dir.resolve(), Path("/work")))
+            args.extend(["-w", "/work"])
 
         if participant_label:
             args.extend(["--participant-label"] + participant_label)

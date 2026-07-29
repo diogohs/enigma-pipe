@@ -20,8 +20,8 @@ def mriqc_main(
         ..., help="BIDS dataset directory", exists=True, file_okay=False, dir_okay=True
     ),
     output_dir: Path = typer.Argument(..., help="Output directory", file_okay=False, dir_okay=True),
-    work_dir: Path = typer.Argument(
-        ..., help="Work/scratch directory", file_okay=False, dir_okay=True
+    work_dir: Path | None = typer.Argument(
+        None, help="Work/scratch directory", file_okay=False, dir_okay=True
     ),
     execution_mode: str = typer.Option("docker", "--execution-mode", help="docker or singularity"),
     participant_label: list[str] | None = typer.Option(
