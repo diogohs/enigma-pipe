@@ -222,7 +222,7 @@ Thumbs.db
 node_modules/
 
 # Data & Output Directories
-data/
+/data/
 docs/
 
 # Agent and Spec directories
