@@ -3,7 +3,7 @@ from io import BytesIO
 from pathlib import Path
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw
 from scipy.ndimage import binary_erosion
 
 
@@ -82,7 +82,11 @@ def generate_captures(
     bg_norm = normalize_image(t1_data)
 
     # Dynamic FOV
-    coords = np.where(seg_data != 0)
+    if np.any(seg_data != 0):
+        coords = np.where(seg_data != 0)
+    else:
+        coords = np.where(t1_data > 0)
+
     if len(coords[0]) == 0:
         return []
 
@@ -137,6 +141,49 @@ def generate_captures(
             if max_longest_side > 0:
                 img.thumbnail((max_longest_side, max_longest_side))
 
+            # Determine labels
+            if axis == 0:
+                labels = {"top": "S", "bottom": "I", "left": "P", "right": "A"}
+            elif axis == 1:
+                labels = {"top": "S", "bottom": "I", "left": "L", "right": "R"}
+            else:
+                labels = {"top": "A", "bottom": "P", "left": "L", "right": "R"}
+
+            if not neurological_orientation:
+                if axis == 0:
+                    labels = {"top": "P", "bottom": "A", "left": "I", "right": "S"}
+                elif axis == 1:
+                    labels = {"top": "L", "bottom": "R", "left": "I", "right": "S"}
+                else:
+                    labels = {"top": "L", "bottom": "R", "left": "P", "right": "A"}
+
+            # Draw labels and slice number directly on image
+            draw = ImageDraw.Draw(img)
+            w, h = img.size
+            
+            def draw_text(pos, text, align="center"):
+                tw = draw.textlength(text) if hasattr(draw, "textlength") else len(text) * 6
+                th = 10
+                x, y = pos
+                if align == "center":
+                    x -= tw / 2
+                    y -= th / 2
+                elif align == "bottom_right":
+                    x -= tw
+                    y -= th
+                
+                for dx in [-1, 0, 1]:
+                    for dy in [-1, 0, 1]:
+                        draw.text((x+dx, y+dy), text, fill="black")
+                draw.text((x, y), text, fill="white")
+
+            draw_text((w/2, 8), labels["top"], "center")
+            draw_text((w/2, h - 8), labels["bottom"], "center")
+            draw_text((8, h/2), labels["left"], "center")
+            draw_text((w - 8, h/2), labels["right"], "center")
+            
+            draw_text((w - 4, h - 4), f"Slice {s}", "bottom_right")
+
             filename = f"{plane_name}_{s}.{fmt}"
             if seg_type_name:
                 out_path = output_dir / case_id / seg_type_name / filename
@@ -184,9 +231,7 @@ def generate_captures(
                 b64 = f"data:image/{fmt.lower()};base64,{img_str}"
                 
                 svg_content.append(f'  <g transform="translate({x}, {y})">')
-                svg_content.append(f'    <image href="{b64}" width="{img_w}" height="{img_h}" />')
-                svg_content.append(f'    <rect x="{x}" y="{y}" width="60" height="25" fill="black" fill-opacity="0.5"/>')
-                svg_content.append(f'    <text x="5" y="18" fill="white" font-size="14" font-family="sans-serif">Slice {p_idx}</text>')
+                svg_content.append(f'    <image href="{b64}" width="{img_w}" height="{img_h}" style="image-rendering: optimizeSpeed; image-rendering: pixelated; image-rendering: crisp-edges;" />')
                 svg_content.append('  </g>')
             
             svg_content.append('</svg>')

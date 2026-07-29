@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import nibabel as nib
+import numpy as np
 import typer
 
 from enigma_pipe.cli.commands.qc_seg import resolve_seg_file
@@ -66,6 +67,9 @@ def slicer_main(
     ),
     max_longest_side: int = typer.Option(
         240, "--max-longest-side", help="Maximum longest side of the image in pixels."
+    ),
+    register: bool = typer.Option(
+        True, "--register/--no-register", help="Register to MNI template."
     ),
 ):
     setup_logging(output_dir)
@@ -147,13 +151,37 @@ def slicer_main(
                     nib.save(t1_ras, tmp_t1)
 
                     # 2. Register to MNI
-                    transform = register_to_mni(tmp_t1, actual_mni)
-
-                    t1_mni = apply_transform(tmp_t1, transform, actual_mni, is_labels=False)
+                    if register:
+                        transform = register_to_mni(tmp_t1, actual_mni)
+                        t1_data = apply_transform(tmp_t1, transform, actual_mni, is_labels=False)
+                    else:
+                        transform = None
+                        t1_data = t1_ras.get_fdata()
 
                     generated_outputs = []
 
-                    # 3. Process each segmentation
+                    # 3. Process raw image captures
+                    case_out_dir_raw = output_dir / case.id / "image"
+                    case_out_dir_raw.mkdir(parents=True, exist_ok=True)
+                    
+                    raw_captures = generate_captures(
+                        t1_data,
+                        np.zeros_like(t1_data),
+                        output_dir,
+                        case.id,
+                        "image",
+                        {},
+                        skip_level=step_size,
+                        padding=padding,
+                        skip_empty=skip_empty,
+                        fmt=fmt,
+                        alpha=alpha,
+                        max_longest_side=max_longest_side,
+                        neurological_orientation=neurological_orientation,
+                    )
+                    generated_outputs.extend(raw_captures)
+
+                    # 4. Process each segmentation
                     for seg_type in settings.segmentation_to_eval:
                         seg_file = resolve_seg_file(case_root, seg_type)
                         if not seg_file:
@@ -205,14 +233,17 @@ def slicer_main(
                         tmp_seg = Path(tmpdir) / f"seg_{seg_type.value}.nii.gz"
                         nib.save(seg_ras, tmp_seg)
 
-                        seg_mni = apply_transform(tmp_seg, transform, actual_mni, is_labels=True)
+                        if register:
+                            seg_data = apply_transform(tmp_seg, transform, actual_mni, is_labels=True)
+                        else:
+                            seg_data = seg_ras.get_fdata()
 
                         case_out_dir = output_dir / case.id / seg_type.value
                         case_out_dir.mkdir(parents=True, exist_ok=True)
 
                         captures = generate_captures(
-                            t1_mni,
-                            seg_mni,
+                            t1_data,
+                            seg_data,
                             output_dir,
                             case.id,
                             seg_type.value,
@@ -229,7 +260,7 @@ def slicer_main(
                         generated_outputs.extend(captures)
 
                     # Clean up transform
-                    if os.path.exists(transform):
+                    if transform and os.path.exists(transform):
                         os.remove(transform)
 
                 manifest = CompletionManifest(
