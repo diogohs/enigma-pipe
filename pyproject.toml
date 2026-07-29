@@ -39,6 +39,11 @@ enigma-pipe = "enigma_pipe.cli.main:app"
 [tool.hatch.build.targets.wheel]
 packages = ["src/enigma_pipe"]
 
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/enigma_pipe/data/*.nii.gz"
+]
+
 [tool.ruff]
 line-length = 100
 target-version = "py310"
