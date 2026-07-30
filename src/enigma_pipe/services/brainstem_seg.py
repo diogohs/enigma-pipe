@@ -6,7 +6,27 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from enigma_pipe.core.manifest import BrainstemSegmentation
+from enigma_pipe.core.models import CaseOutcome, TerminalStatus
+
+
+def validate_fastsurfer_output(case_dir: Path) -> None:
+    """Validates that a directory is a valid FastSurfer output structure."""
+    mri_dir = case_dir / "mri"
+    missing = []
+    if not (mri_dir / "norm.mgz").exists():
+        missing.append("mri/norm.mgz")
+    if not (mri_dir / "nu.mgz").exists():
+        missing.append("mri/nu.mgz")
+    if not ((mri_dir / "aseg.mgz").exists() or (mri_dir / "aseg.presurf.mgz").exists()):
+        missing.append("mri/aseg.mgz or mri/aseg.presurf.mgz")
+
+    if missing:
+        raise ValueError(
+            f"Invalid FastSurfer output directory '{case_dir}'. Missing required files: {', '.join(missing)}"
+        )
+
+
+
 
 
 class FreeSurferChecker:
@@ -57,37 +77,15 @@ class FreeSurferChecker:
                 )
 
 
-def compute_threads(threads_arg: str | None) -> int:
-    if not threads_arg:
+def compute_threads(threads_arg: int | None) -> int:
+    if threads_arg is None:
         return 1
-
-    if threads_arg.lower() != "max":
-        try:
-            val = int(threads_arg)
-            return max(1, val)
-        except ValueError:
-            return 1
-
-    # Handle "max" logic
-    cpu_count = None
-    if hasattr(os, "sched_getaffinity"):
-        try:
-            cpu_count = len(os.sched_getaffinity(0))
-        except Exception:
-            pass
-
-    if cpu_count is None:
-        cpu_count = os.cpu_count()
-
-    if not cpu_count:
-        return 1
-
-    return max(1, cpu_count // 2)
+    return max(1, threads_arg)
 
 
 def run_brainstem_segmentation(
-    output_dir: Path, case_id: str, threads_arg: str | None
-) -> BrainstemSegmentation:
+    output_dir: Path, case_id: str, threads_arg: int | None
+) -> CaseOutcome:
     start_time = datetime.now(timezone.utc)
     threads = compute_threads(threads_arg)
 
@@ -99,55 +97,42 @@ def run_brainstem_segmentation(
         case_id,
         "--sd",
         str(output_dir),
-        "--threads",
-        str(threads),
     ]
+    if threads_arg is not None:
+        cmd.extend(["--threads", str(threads)])
 
     # Print to stderr before execution
     sys.stderr.write(f"Executing: {' '.join(cmd)}\n")
 
     # Execute
     env = os.environ.copy()
-    env["OMP_NUM_THREADS"] = str(threads)
-    env["ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS"] = str(threads)
+    if threads_arg is not None:
+        env["OMP_NUM_THREADS"] = str(threads)
+        env["ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS"] = str(threads)
 
     try:
         result = subprocess.run(cmd, env=env, check=False)
-        end_time = datetime.now(timezone.utc)
 
         if result.returncode == 0:
-            return BrainstemSegmentation(
-                status="SUCCESS",
-                exit_code=0,
-                started_at=start_time,
-                finished_at=end_time,
-                threads_used=threads,
+            return CaseOutcome(
+                case_id=case_id,
+                status=TerminalStatus.SUCCESS,
             )
         else:
-            return BrainstemSegmentation(
-                status="FAILED",
-                exit_code=result.returncode,
-                started_at=start_time,
-                finished_at=end_time,
-                threads_used=threads,
+            return CaseOutcome(
+                case_id=case_id,
+                status=TerminalStatus.FAILED,
                 error_message=f"Process exited with code {result.returncode}",
             )
     except KeyboardInterrupt:
-        return BrainstemSegmentation(
-            status="INTERRUPTED",
-            exit_code=None,
-            started_at=start_time,
-            finished_at=None,
-            threads_used=threads,
+        return CaseOutcome(
+            case_id=case_id,
+            status=TerminalStatus.INTERRUPTED,
             error_message="KeyboardInterrupt",
         )
     except Exception as e:
-        end_time = datetime.now(timezone.utc)
-        return BrainstemSegmentation(
-            status="FAILED",
-            exit_code=1,
-            started_at=start_time,
-            finished_at=end_time,
-            threads_used=threads,
+        return CaseOutcome(
+            case_id=case_id,
+            status=TerminalStatus.FAILED,
             error_message=str(e),
         )

@@ -8,15 +8,6 @@ from enigma_pipe.core.models import TerminalStatus
 from enigma_pipe.services.atomic import atomic_write
 
 
-class BrainstemSegmentation(BaseModel):
-    status: str
-    exit_code: int | None = None
-    started_at: datetime
-    finished_at: datetime | None = None
-    threads_used: int
-    error_message: str | None = None
-
-
 class CompletionManifest(BaseModel):
     status: TerminalStatus
     case_id: str
@@ -25,7 +16,6 @@ class CompletionManifest(BaseModel):
     finished_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     outputs: list[str] = Field(default_factory=list)
     error_message: str | None = None
-    brainstem_segmentation: BrainstemSegmentation | None = None
 
 
 def write_manifest(

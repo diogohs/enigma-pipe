@@ -67,10 +67,9 @@ def test_fastsurfer_skip_version_check(tmp_path, monkeypatch):
     assert "below the minimum supported version" not in result2.output
 
 
-from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
-from enigma_pipe.core.manifest import BrainstemSegmentation
+from enigma_pipe.core.models import CaseOutcome, TerminalStatus
 
 
 def test_fastsurfer_brainstem_seg_integration(tmp_path, monkeypatch):
@@ -118,8 +117,8 @@ def test_fastsurfer_brainstem_seg_integration(tmp_path, monkeypatch):
 
     # Mock run_brainstem_segmentation
     mock_run_brainstem = MagicMock()
-    mock_run_brainstem.return_value = BrainstemSegmentation(
-        status="SUCCESS", exit_code=0, started_at=datetime.now(timezone.utc), threads_used=1
+    mock_run_brainstem.return_value = CaseOutcome(
+        case_id="sub-01", status=TerminalStatus.SUCCESS
     )
     monkeypatch.setattr(
         "enigma_pipe.cli.commands.fastsurfer.run_brainstem_segmentation", mock_run_brainstem
@@ -134,8 +133,12 @@ def test_fastsurfer_brainstem_seg_integration(tmp_path, monkeypatch):
 
     # sub-01 succeeded in FS, so brainstem seg should have been called
     # sub-02 failed in FS, so brainstem seg should NOT have been called
-    assert mock_run_brainstem.call_count == 1
     mock_run_brainstem.assert_called_once_with(out_dir, "sub-01", None)
+    
+    from enigma_pipe.core.manifest import read_manifest
+    manifest = read_manifest(out_dir, "sub-01", "brainstem")
+    assert manifest is not None
+    assert manifest.status == TerminalStatus.SUCCESS
 
 
 def _make_single_case_env(tmp_path, monkeypatch, run_case_retcode=0):
@@ -180,12 +183,9 @@ def test_fastsurfer_brainstem_seg_failure_exits_4(tmp_path, monkeypatch):
         tmp_path, monkeypatch, run_case_retcode=0
     )
 
-    failed_brainstem = BrainstemSegmentation(
-        status="FAILED",
-        exit_code=1,
-        started_at=datetime.now(timezone.utc),
-        finished_at=datetime.now(timezone.utc),
-        threads_used=1,
+    failed_brainstem = CaseOutcome(
+        case_id="sub-01",
+        status=TerminalStatus.FAILED,
         error_message="Process exited with code 1",
     )
 
@@ -204,18 +204,41 @@ def test_fastsurfer_brainstem_seg_failure_exits_4(tmp_path, monkeypatch):
     mock_run_brainstem.assert_called_once()
 
 
+def test_fastsurfer_no_brainstem_flag(tmp_path, monkeypatch):
+    """When --no-brainstem is specified, run_brainstem_segmentation is not called."""
+    input_dir, out_dir, fs_license = _make_single_case_env(
+        tmp_path, monkeypatch, run_case_retcode=0
+    )
+
+    mock_run_brainstem = MagicMock()
+    monkeypatch.setattr(
+        "enigma_pipe.cli.commands.fastsurfer.run_brainstem_segmentation", mock_run_brainstem
+    )
+
+    result = runner.invoke(
+        app, [
+            "fastsurfer", 
+            "--fs-license", str(fs_license), 
+            "--no-brainstem",
+            str(input_dir), str(out_dir)
+        ]
+    )
+
+    assert result.exit_code == 0, (
+        f"Expected exit 0, got {result.exit_code}. Output:\n{result.output}"
+    )
+    mock_run_brainstem.assert_not_called()
+
+
 def test_fastsurfer_brainstem_seg_interrupted_exits_130(tmp_path, monkeypatch):
     """When segment_subregions is interrupted (INTERRUPTED status), the CLI must exit 130 immediately."""
     input_dir, out_dir, fs_license = _make_single_case_env(
         tmp_path, monkeypatch, run_case_retcode=0
     )
 
-    interrupted_brainstem = BrainstemSegmentation(
-        status="INTERRUPTED",
-        exit_code=None,
-        started_at=datetime.now(timezone.utc),
-        finished_at=None,
-        threads_used=1,
+    interrupted_brainstem = CaseOutcome(
+        case_id="sub-01",
+        status=TerminalStatus.INTERRUPTED,
         error_message="KeyboardInterrupt",
     )
 
