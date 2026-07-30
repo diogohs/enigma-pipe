@@ -16,7 +16,71 @@ from enigma_pipe.services.brainstem_seg import (
     run_brainstem_segmentation,
     validate_fastsurfer_output,
 )
-from enigma_pipe.services.case_discovery import discover_cases
+from enigma_pipe.core.exceptions import InvalidSettingsError
+from enigma_pipe.core.manifest import read_manifest
+
+class DiscoveryResult(list):
+    def __init__(self, cases, total_found=0, skipped_count=0):
+        super().__init__(cases)
+        self.total_found = total_found
+        self.skipped_count = skipped_count
+
+def discover_fs_cases(
+    input_dir: Path, processing_mode: ProcessingMode, existing_output: ExistingOutputPolicy
+) -> DiscoveryResult:
+    from enigma_pipe.core.models import CaseIdentifier
+
+    cases = []
+    total_found = 0
+    skipped_count = 0
+
+    candidates = []
+    
+    # Check if input_dir itself is a valid case
+    try:
+        validate_fastsurfer_output(input_dir)
+        candidates.append(input_dir)
+    except ValueError:
+        pass
+        
+    if not candidates and input_dir.is_dir():
+        # Check subdirectories
+        for child in sorted(input_dir.iterdir()):
+            if child.is_dir() and not child.name.startswith("."):
+                try:
+                    validate_fastsurfer_output(child)
+                    candidates.append(child)
+                except ValueError:
+                    pass
+
+    if not candidates:
+        # Found nothing
+        return DiscoveryResult([], total_found=0, skipped_count=0)
+        
+    for candidate in candidates:
+        case_id = candidate.name
+        output_dir = candidate.parent
+        total_found += 1
+        
+        manifest = read_manifest(output_dir, case_id, "brainstem")
+        is_completed = manifest is not None and manifest.status == "success"
+        
+        if processing_mode == ProcessingMode.CONTINUE and is_completed:
+            skipped_count += 1
+            continue
+            
+        if is_completed and existing_output == ExistingOutputPolicy.SKIP:
+            skipped_count += 1
+            continue
+            
+        if is_completed and existing_output == ExistingOutputPolicy.ERROR:
+            raise InvalidSettingsError(
+                f"Case {case_id} already has completed output and policy is 'error'."
+            )
+            
+        cases.append(CaseIdentifier(id=case_id, original_path=candidate))
+
+    return DiscoveryResult(cases, total_found=total_found, skipped_count=skipped_count)
 
 
 @app.command(name="brainstem", help="Run standalone brainstem subsegmentation on FastSurfer output")
@@ -34,11 +98,9 @@ def brainstem_main(
 ):
     FreeSurferChecker.check_availability()
 
-    output_dir = input_dir
-
     try:
-        cases = discover_cases(
-            input_dir, output_dir, "brainstem", processing_mode, existing_output
+        cases = discover_fs_cases(
+            input_dir, processing_mode, existing_output
         )
     except Exception as e:
         print_error(f"Validation error: {e}")
@@ -69,10 +131,11 @@ def brainstem_main(
         print_info(f"Discovered {total_to_process} {case_word_process} to process.")
 
     for case in cases:
+        # The output_dir for this case is its parent directory
+        case_output_dir = case.original_path.parent
+        
         try:
-            # We must validate that the case output dir is a valid FastSurfer output
-            # (which is what brainstem requires as input)
-            validate_fastsurfer_output(output_dir / case.id)
+            validate_fastsurfer_output(case.original_path)
         except ValueError as e:
             print_error(str(e))
             failed += 1
@@ -84,13 +147,13 @@ def brainstem_main(
                 started_at=datetime.now(timezone.utc),
                 error_message=str(e),
             )
-            write_manifest(output_dir, case.id, "brainstem", manifest)
+            write_manifest(case_output_dir, case.id, "brainstem", manifest)
             continue
 
         started = datetime.now(timezone.utc)
         print_info(f"Running brainstem subsegmentation for {case.id}")
         
-        result = run_brainstem_segmentation(output_dir, case.id, threads)
+        result = run_brainstem_segmentation(case_output_dir, case.id, threads)
 
         if result.status == TerminalStatus.INTERRUPTED:
             print_error("Brainstem subsegmentation interrupted.")
@@ -100,7 +163,7 @@ def brainstem_main(
                 subcommand="brainstem",
                 started_at=started,
             )
-            write_manifest(output_dir, case.id, "brainstem", manifest)
+            write_manifest(case_output_dir, case.id, "brainstem", manifest)
             results.append({"case_id": case.id, "status": TerminalStatus.INTERRUPTED.value})
             if state.json_output:
                 print_json_summary(
@@ -119,9 +182,9 @@ def brainstem_main(
             subcommand="brainstem",
             started_at=started,
             error_message=result.error_message,
-            outputs=[str(output_dir / case.id / "mri" / "brainstemSsLabels.v13.FSvoxelSpace.mgz")] if result.status == TerminalStatus.SUCCESS else [],
+            outputs=[str(case.original_path / "mri" / "brainstemSsLabels.v13.FSvoxelSpace.mgz")] if result.status == TerminalStatus.SUCCESS else [],
         )
-        write_manifest(output_dir, case.id, "brainstem", manifest)
+        write_manifest(case_output_dir, case.id, "brainstem", manifest)
         results.append({"case_id": case.id, "status": result.status.value})
 
     exit_code = 0
