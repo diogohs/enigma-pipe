@@ -24,7 +24,6 @@ def brainstem_main(
     input_dir: Path = typer.Argument(
         ..., help="Directory containing FastSurfer outputs", exists=True, file_okay=False, dir_okay=True
     ),
-    output_dir: Path = typer.Argument(..., help="Output directory", file_okay=False, dir_okay=True),
     processing_mode: ProcessingMode = typer.Option(
         ProcessingMode.ALL, "--processing-mode", help="Case selection mode ('all' for entire directory, 'continue' to resume incomplete runs, 'file' for explicit lists)"
     ),
@@ -34,6 +33,8 @@ def brainstem_main(
     threads: int | None = typer.Option(None, "--threads", help="Thread count"),
 ):
     FreeSurferChecker.check_availability()
+
+    output_dir = input_dir
 
     try:
         cases = discover_cases(
