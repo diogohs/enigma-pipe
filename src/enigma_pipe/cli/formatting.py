@@ -1,19 +1,16 @@
+import sys
 import json
-import logging
 from datetime import datetime
 from pathlib import Path
+from loguru import logger
 
-from rich.console import Console
-from rich.logging import RichHandler
-
-console = Console(stderr=True)
-
-logger = logging.getLogger("enigma_pipe")
-logger.setLevel(logging.INFO)
-
-console_handler = RichHandler(console=console, show_time=True, show_path=False, markup=True)
-console_handler.setFormatter(logging.Formatter("%(message)s"))
-logger.addHandler(console_handler)
+logger.remove()
+logger.add(
+    lambda msg: sys.stderr.write(msg), 
+    colorize=True, 
+    format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <level>{message}</level>", 
+    level="INFO"
+)
 
 
 def setup_logging(output_dir: Path):
@@ -23,11 +20,11 @@ def setup_logging(output_dir: Path):
     timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
     log_file = logs_dir / f"enigma-pipe-{timestamp}.log"
 
-    file_handler = logging.FileHandler(log_file)
-    file_handler.setLevel(logging.INFO)
-    file_formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-    file_handler.setFormatter(file_formatter)
-    logger.addHandler(file_handler)
+    logger.add(
+        log_file, 
+        format="{time:YYYY-MM-DD HH:mm:ss} - {level} - {message}", 
+        level="INFO"
+    )
 
 
 def print_error(msg: str):
