@@ -1,0 +1,81 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "enigma-pipe"
+version = "0.1.0"
+description = "Enigma Pipe CLI"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "typer>=0.9.0",
+    "rich>=13.0.0",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+    "pyyaml>=6.0",
+    "nibabel>=5.0.0",
+    "numpy>=1.22.0",
+    "pillow>=10.0.0",
+    "scipy>=1.10.0",
+    "antspyx>=0.4.0",
+    "pybids>=0.16.4",
+    "black>=26.5.1",
+    "loguru>=0.7.3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=4.1.0",
+    "ruff>=0.1.0",
+    "black>=23.0.0",
+    "mypy>=1.5.0",
+    "pre-commit>=3.0.0",
+]
+
+[project.scripts]
+enigma-pipe = "enigma_pipe.cli.main:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/enigma_pipe"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/enigma_pipe/data/*.nii.gz"
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.black]
+line-length = 100
+target-version = ["py310"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-ra -q --cov=src/enigma_pipe --cov-report=term-missing"
+testpaths = [
+    "tests",
+]
+markers = [
+    "unit: mark test as unit test",
+    "integration: mark test as integration test",
+    "cli: mark test as cli test",
+]
+
+[dependency-groups]
+dev = [
+    "black>=26.5.1",
+    "mypy>=2.3.0",
+    "pre-commit>=4.6.1",
+    "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.16.0",
+]

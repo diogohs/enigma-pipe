@@ -1,0 +1,299 @@
+import os
+import tempfile
+from datetime import datetime, timezone
+from pathlib import Path
+
+import nibabel as nib
+import numpy as np
+import typer
+
+from enigma_pipe.cli.commands.qc_seg import resolve_seg_file
+from enigma_pipe.cli.formatting import (
+    print_error,
+    print_info,
+    print_json_summary,
+    print_warning,
+    setup_logging,
+)
+from enigma_pipe.cli.main import app, state
+from enigma_pipe.core.config import load_settings
+from enigma_pipe.core.manifest import CompletionManifest, write_manifest
+from enigma_pipe.core.models import (
+    ExistingOutputPolicy,
+    ProcessingMode,
+    SegmentationType,
+    TerminalStatus,
+)
+from enigma_pipe.services.case_discovery import discover_cases
+from enigma_pipe.services.lut import parse_freesurfer_lut
+from enigma_pipe.services.registration import apply_transform, register_to_mni
+from enigma_pipe.services.slicer import generate_captures
+
+
+@app.command(name="slicer", help="Generate Slice Captures")
+def slicer_main(
+    input_dir: Path = typer.Argument(
+        ...,
+        help="Directory containing FastSurfer outputs",
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+    ),
+    output_dir: Path = typer.Argument(
+        ..., help="Output directory for captures.", file_okay=False, dir_okay=True
+    ),
+    mni_template: Path | None = typer.Option(
+        None, "--mni-template", help="Path to MNI152 template (optional)."
+    ),
+    lut_file: Path | None = typer.Option(
+        None, "--lut", help="Path to specific LUT/colormap file (optional)."
+    ),
+    processing_mode: ProcessingMode = typer.Option(
+        ProcessingMode.ALL, "--processing-mode", help="Case selection mode."
+    ),
+    existing_output: ExistingOutputPolicy = typer.Option(
+        ExistingOutputPolicy.SKIP, "--existing-output", help="Existing output policy."
+    ),
+    alpha: float = typer.Option(0.5, "--alpha", help="Overlay alpha blending (0.0-1.0)."),
+    step_size: int = typer.Option(
+        1, "--step", help="Interval between consecutive slices (skip level)."
+    ),
+    padding: int = typer.Option(
+        10, "--padding", help="Padding around the segmentation bounding box."
+    ),
+    skip_empty: bool = typer.Option(
+        False, "--skip-empty", help="Skip slices where segmentation and image are both empty."
+    ),
+    fmt: str = typer.Option("jpeg", "--format", help="Output image format (e.g., png, jpeg, jpg)."),
+    neurological_orientation: bool = typer.Option(
+        True, "--neurological-orientation", help="Use neurological orientation."
+    ),
+    image_source: str = typer.Option(
+        "mri/brainmask.mgz", "--image-source", help="Image source path relative to case root."
+    ),
+    max_longest_side: int = typer.Option(
+        240, "--max-longest-side", help="Maximum longest side of the image in pixels."
+    ),
+    register: bool = typer.Option(
+        True, "--register/--no-register", help="Register to MNI template."
+    ),
+):
+    setup_logging(output_dir)
+    settings = load_settings(state.settings_path)
+
+    try:
+        cases = discover_cases(
+            input_dir,
+            output_dir,
+            "slicer",
+            processing_mode,
+            existing_output,
+            extensions=("brainmask.mgz",),
+            prune_fastsurfer=False,
+            case_id_extractor=lambda p: p.parent.parent.name,
+        )
+    except Exception as e:
+        print_error(f"Validation error: {e}")
+        raise typer.Exit(2)
+
+    total = len(cases)
+    total_found = getattr(cases, "total_found", total)
+    skipped_count = getattr(cases, "skipped_count", 0)
+
+    if total_found > 0 and total == 0:
+        print_info(
+            f"Discovered {total_found} cases, but all {skipped_count} cases are already completed and skipped according to policy."
+        )
+        raise typer.Exit(0)
+    elif total == 0:
+        print_info("No cases found to process.")
+        raise typer.Exit(0)
+    elif skipped_count > 0:
+        print_info(
+            f"Discovered {total_found} cases: {total} to process ({skipped_count} already completed and skipped)."
+        )
+
+    succeeded = 0
+    results = []
+
+    import importlib.resources
+    from contextlib import ExitStack
+
+    with ExitStack() as stack:
+        actual_mni = mni_template
+        if not actual_mni:
+            try:
+                # Use as_file to handle potentially zipped environments
+                resource = importlib.resources.files("enigma_pipe.data").joinpath(
+                    "mni_icbm152_t1_tal_nlin_sym_09c.nii"
+                )
+                if not resource.is_file():
+                    raise FileNotFoundError
+                actual_mni = stack.enter_context(importlib.resources.as_file(resource))
+            except (ModuleNotFoundError, FileNotFoundError):
+                print_error("Internal MNI template not found. Please provide --mni argument.")
+                raise typer.Exit(1)
+
+        print_info(f"Starting Slicer for {total} cases.")
+        for idx, case in enumerate(cases):
+            print_info(f"[{idx + 1}/{total}] Case: {case.id}")
+            started = datetime.now(timezone.utc)
+
+            case_root = case.original_path.parent.parent
+            t1_path = case_root / image_source
+
+            if not t1_path.exists():
+                print_error(f"Image source not found: {t1_path}. Skipping case {case.id}.")
+                results.append({"case_id": case.id, "status": TerminalStatus.FAILED.value})
+                continue
+
+            try:
+                # 1. Convert to NIfTI & Reorient to RAS
+                t1_img = nib.load(t1_path)
+                t1_ras = nib.as_closest_canonical(t1_img)
+
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    tmp_t1 = Path(tmpdir) / "t1_ras.nii.gz"
+                    nib.save(t1_ras, tmp_t1)
+
+                    # 2. Register to MNI
+                    if register:
+                        transform = register_to_mni(tmp_t1, actual_mni)
+                        t1_data = apply_transform(tmp_t1, transform, actual_mni, is_labels=False)
+                    else:
+                        transform = None
+                        t1_data = t1_ras.get_fdata()
+
+                    generated_outputs = []
+
+                    # 3. Process raw image captures
+                    case_out_dir_raw = output_dir / case.id / "image"
+                    case_out_dir_raw.mkdir(parents=True, exist_ok=True)
+                    
+                    raw_captures = generate_captures(
+                        t1_data,
+                        np.zeros_like(t1_data),
+                        output_dir,
+                        case.id,
+                        "image",
+                        {},
+                        skip_level=step_size,
+                        padding=padding,
+                        skip_empty=skip_empty,
+                        fmt=fmt,
+                        alpha=alpha,
+                        max_longest_side=max_longest_side,
+                        neurological_orientation=neurological_orientation,
+                    )
+                    generated_outputs.extend(raw_captures)
+
+                    # 4. Process each segmentation
+                    for seg_type in settings.segmentation_to_eval:
+                        seg_file = resolve_seg_file(case_root, seg_type)
+                        if not seg_file:
+                            continue
+
+                        # Determine LUT file
+                        actual_lut_file = None
+                        if lut_file:
+                            actual_lut_file = lut_file
+                        else:
+                            lut_candidates = []
+                            if seg_type == SegmentationType.ASEG:
+                                lut_candidates = [
+                                    "FastSurfer_ColorLUT.tsv",
+                                    "FreeSurferColorLUT.txt",
+                                ]
+                            elif seg_type == SegmentationType.CEREBNET:
+                                lut_candidates = ["CerebNet_ColorLUT.tsv", "FreeSurferColorLUT.txt"]
+                            else:
+                                lut_candidates = ["FreeSurferColorLUT.txt", "FreeSurferColorLUT"]
+
+                            # Check case_root/mri or case_root
+                            for cand in lut_candidates:
+                                if (case_root / cand).exists():
+                                    actual_lut_file = case_root / cand
+                                    break
+                                if (case_root / "mri" / cand).exists():
+                                    actual_lut_file = case_root / "mri" / cand
+                                    break
+
+                        if not actual_lut_file or not actual_lut_file.exists():
+                            try:
+                                res_lut = importlib.resources.files("enigma_pipe.data").joinpath("FreeSurferColorLUT.txt")
+                                if res_lut.is_file():
+                                    actual_lut_file = stack.enter_context(importlib.resources.as_file(res_lut))
+                            except Exception:
+                                pass
+
+                        if not actual_lut_file or not Path(actual_lut_file).exists():
+                            print_warning(
+                                f"LUT file for {seg_type.value} not found. Skipping coloring for case {case.id}."
+                            )
+                            lut = {}
+                        else:
+                            lut = parse_freesurfer_lut(actual_lut_file)
+
+                        seg_img = nib.load(seg_file)
+                        seg_ras = nib.as_closest_canonical(seg_img)
+                        tmp_seg = Path(tmpdir) / f"seg_{seg_type.value}.nii.gz"
+                        nib.save(seg_ras, tmp_seg)
+
+                        if register:
+                            seg_data = apply_transform(tmp_seg, transform, actual_mni, is_labels=True)
+                        else:
+                            seg_data = seg_ras.get_fdata()
+
+                        case_out_dir = output_dir / case.id / seg_type.value
+                        case_out_dir.mkdir(parents=True, exist_ok=True)
+
+                        captures = generate_captures(
+                            t1_data,
+                            seg_data,
+                            output_dir,
+                            case.id,
+                            seg_type.value,
+                            lut,
+                            skip_level=step_size,
+                            padding=padding,
+                            skip_empty=skip_empty,
+                            fmt=fmt,
+                            alpha=alpha,
+                            max_longest_side=max_longest_side,
+                            neurological_orientation=neurological_orientation,
+                        )
+
+                        generated_outputs.extend(captures)
+
+                    # Clean up transform
+                    if transform and os.path.exists(transform):
+                        os.remove(transform)
+
+                manifest = CompletionManifest(
+                    status=TerminalStatus.SUCCESS,
+                    case_id=case.id,
+                    subcommand="slicer",
+                    started_at=started,
+                    outputs=generated_outputs,
+                )
+                write_manifest(output_dir, case.id, "slicer", manifest)
+                succeeded += 1
+                results.append({"case_id": case.id, "status": TerminalStatus.SUCCESS.value})
+
+            except Exception as e:
+                print_error(f"Failed to process case {case.id}: {e}")
+                manifest = CompletionManifest(
+                    status=TerminalStatus.FAILED,
+                    case_id=case.id,
+                    subcommand="slicer",
+                    started_at=started,
+                    error_message=str(e),
+                )
+                write_manifest(output_dir, case.id, "slicer", manifest)
+                results.append({"case_id": case.id, "status": TerminalStatus.FAILED.value})
+
+    exit_code = 0 if succeeded == total else 4
+    if state.json_output:
+        print_json_summary("slicer", total, succeeded, total - succeeded, 0, exit_code, results)
+
+    raise typer.Exit(exit_code)
