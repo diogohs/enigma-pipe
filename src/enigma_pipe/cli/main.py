@@ -32,8 +32,14 @@ def main(
 
 
 # Import commands to register them with the Typer app
-from enigma_pipe.cli.commands import fastsurfer, mriqc, qc_img, qc_seg, slicer  # noqa: F401
-
+from enigma_pipe.cli.commands import (  # noqa: F401
+    brainstem,
+    fastsurfer,
+    mriqc,
+    qc_img,
+    qc_seg,
+    slicer,
+)
 
 if __name__ == "__main__":
     app()

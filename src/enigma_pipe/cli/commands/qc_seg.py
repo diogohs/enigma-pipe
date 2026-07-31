@@ -5,7 +5,13 @@ from pathlib import Path
 import typer
 from rich.prompt import IntPrompt, Prompt
 
-from enigma_pipe.cli.formatting import print_error, print_info, print_json_summary, print_warning, setup_logging
+from enigma_pipe.cli.formatting import (
+    print_error,
+    print_info,
+    print_json_summary,
+    print_warning,
+    setup_logging,
+)
 from enigma_pipe.cli.main import app, state
 from enigma_pipe.core.config import load_settings
 from enigma_pipe.core.manifest import CompletionManifest, write_manifest

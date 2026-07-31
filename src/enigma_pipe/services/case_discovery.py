@@ -18,7 +18,8 @@ def is_hidden(path: Path) -> bool:
     return path.name.startswith(".")
 
 
-from typing import Callable
+from collections.abc import Callable
+
 
 def discover_cases(
     input_dir: Path,

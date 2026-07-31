@@ -3,7 +3,13 @@ from pathlib import Path
 
 import typer
 
-from enigma_pipe.cli.formatting import print_error, print_info, print_json_summary, print_warning, setup_logging
+from enigma_pipe.cli.formatting import (
+    print_error,
+    print_info,
+    print_json_summary,
+    print_warning,
+    setup_logging,
+)
 from enigma_pipe.cli.main import app, state
 from enigma_pipe.core.config import load_settings
 from enigma_pipe.core.exceptions import MissingDependencyError
@@ -45,6 +51,7 @@ def fastsurfer_main(
     no_cc: bool = typer.Option(False, "--no-cc", help="Skip corpus callosum segmentation"),
     no_cereb: bool = typer.Option(False, "--no-cereb", help="Skip cerebellum segmentation"),
     no_hypothal: bool = typer.Option(True, "--no-hypothal", help="Skip hypothalamus segmentation"),
+    no_brainstem: bool = typer.Option(False, "--no-brainstem", help="Skip brainstem subsegmentation"),
     skip_version_check: bool = typer.Option(
         False, "--skip-version-check", help="Bypass FastSurfer version check"
     ),
@@ -131,33 +138,53 @@ def fastsurfer_main(
             if retcode == 0:
                 succeeded += 1
                 status = TerminalStatus.SUCCESS
-                brainstem_result = run_brainstem_segmentation(
-                    output_dir, case.id, str(threads) if threads else None
-                )
-
-                # Handle brainstem segmentation outcome
-                if brainstem_result.status == "INTERRUPTED":
-                    # Write manifest with INTERRUPTED status and exit immediately
-                    manifest = CompletionManifest(
-                        status=TerminalStatus.INTERRUPTED,
-                        case_id=case.id,
-                        subcommand="fastsurfer",
-                        started_at=started,
-                        outputs=[str(output_dir / case.id)],
-                        brainstem_segmentation=brainstem_result,
+                if not no_brainstem:
+                    brainstem_result = run_brainstem_segmentation(
+                        output_dir, case.id, int(threads) if threads and threads.isdigit() else None
                     )
-                    write_manifest(output_dir, case.id, "fastsurfer", manifest)
-                    results.append({"case_id": case.id, "status": TerminalStatus.INTERRUPTED.value})
-                    if state.json_output:
-                        print_json_summary(
-                            "fastsurfer", total, succeeded, failed, skipped, 130, results
+
+                    # Handle brainstem segmentation outcome
+                    if brainstem_result.status == TerminalStatus.INTERRUPTED:
+                        # Write manifest with INTERRUPTED status and exit immediately
+                        manifest = CompletionManifest(
+                            status=TerminalStatus.INTERRUPTED,
+                            case_id=case.id,
+                            subcommand="fastsurfer",
+                            started_at=started,
+                            outputs=[str(output_dir / case.id)],
                         )
-                    raise typer.Exit(130)
-                elif brainstem_result.status == "FAILED":
-                    # Demote success to failure — brainstem seg failed
-                    succeeded -= 1
-                    failed += 1
-                    status = TerminalStatus.FAILED
+                        write_manifest(output_dir, case.id, "fastsurfer", manifest)
+                        brainstem_manifest = CompletionManifest(
+                            status=TerminalStatus.INTERRUPTED,
+                            case_id=case.id,
+                            subcommand="brainstem",
+                            started_at=started,
+                            outputs=[str(output_dir / case.id / "mri" / "brainstemSsLabels.v13.FSvoxelSpace.mgz")],
+                        )
+                        write_manifest(output_dir, case.id, "brainstem", brainstem_manifest)
+                        results.append({"case_id": case.id, "status": TerminalStatus.INTERRUPTED.value})
+                        if state.json_output:
+                            print_json_summary(
+                                "fastsurfer", total, succeeded, failed, skipped, 130, results
+                            )
+                        raise typer.Exit(130)
+                    elif brainstem_result.status == TerminalStatus.FAILED:
+                        # Demote success to failure — brainstem seg failed
+                        succeeded -= 1
+                        failed += 1
+                        status = TerminalStatus.FAILED
+                        
+                    # Write brainstem manifest
+                    if brainstem_result.status != TerminalStatus.INTERRUPTED:
+                        brainstem_manifest = CompletionManifest(
+                            status=brainstem_result.status,
+                            case_id=case.id,
+                            subcommand="brainstem",
+                            started_at=started,
+                            error_message=brainstem_result.error_message,
+                            outputs=[str(output_dir / case.id / "mri" / "brainstemSsLabels.v13.FSvoxelSpace.mgz")] if brainstem_result.status == TerminalStatus.SUCCESS else [],
+                        )
+                        write_manifest(output_dir, case.id, "brainstem", brainstem_manifest)
             else:
                 failed += 1
                 status = TerminalStatus.FAILED
@@ -168,7 +195,6 @@ def fastsurfer_main(
                 subcommand="fastsurfer",
                 started_at=started,
                 outputs=[str(output_dir / case.id)],
-                brainstem_segmentation=brainstem_result,
             )
             write_manifest(output_dir, case.id, "fastsurfer", manifest)
             results.append({"case_id": case.id, "status": status.value})
