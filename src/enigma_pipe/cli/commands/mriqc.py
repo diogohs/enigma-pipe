@@ -34,10 +34,13 @@ def mriqc_main(
         None, "--participant-label", help="List of participants to run (optional)."
     ),
     n_procs: int | None = typer.Option(None, "--nprocs", help="Number of processors to use (optional)."),
+    image_sif: str | None = typer.Option(
+        None, "--image-sif", help="Path to a custom Apptainer/Singularity .sif container file"
+    ),
 ):
     setup_logging(output_dir)
     try:
-        runner = MRIQCRunner(mode=ExecutionMode(execution_mode))
+        runner = MRIQCRunner(mode=ExecutionMode(execution_mode), image=image_sif)
     except MissingDependencyError as e:
         print_error(str(e))
         raise typer.Exit(3)
