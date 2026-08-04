@@ -22,7 +22,7 @@ class FastSurferRunner(ContainerRunner):
 
     DOCKER_IMAGE = "deepmi/fastsurfer:latest"
     DEFAULT_SIF_IMAGE = (
-        Path.home() / "containers" / "fastsurfer.sif"
+        Path.home() / "enigma-pipe" / "images" / "fastsurfer.sif"
     )
     FASTSURFER_ENTRYPOINT = "/fastsurfer/run_fastsurfer.sh"
 

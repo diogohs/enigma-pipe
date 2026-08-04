@@ -50,7 +50,7 @@ class MRIQCRunner(ContainerRunner):
                 configured_image = "nipreps/mriqc:latest"
             else:
                 configured_image = str(
-                    Path.home() / "containers" / "mriqc.sif"
+                    Path.home() / "enigma-pipe" / "images" / "mriqc.sif"
                 )
 
         configured_image = os.path.expandvars(
