@@ -133,7 +133,7 @@ def test_fastsurfer_brainstem_seg_integration(tmp_path, monkeypatch):
 
     # sub-01 succeeded in FS, so brainstem seg should have been called
     # sub-02 failed in FS, so brainstem seg should NOT have been called
-    mock_run_brainstem.assert_called_once_with(out_dir, "sub-01", None)
+    mock_run_brainstem.assert_called_once_with(out_dir, "sub-01", 1)
     
     from enigma_pipe.core.manifest import read_manifest
     manifest = read_manifest(out_dir, "sub-01", "brainstem")

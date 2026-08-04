@@ -50,8 +50,7 @@ class FastSurferRunner(ContainerRunner):
                         "FastSurfer Singularity/Apptainer image not found "
                         f"at {image_path}. Create it with:\n"
                         f'  mkdir -p "{image_path.parent}"\n'
-                        f"  singularity pull --force "
-                        f'"{image_path}" '
+                        f'  singularity build "{image_path}" '
                         "docker://deepmi/fastsurfer:latest\n"
                         "Alternatively, set ENIGMA_PIPE_FASTSURFER_IMAGE "
                         "to another .sif image or pass --image-sif."
@@ -133,11 +132,8 @@ class FastSurferRunner(ContainerRunner):
             fs_device,
         ]
 
-        if threads:
-            val_threads = validate_threads(threads)
-            args.extend(["--threads", str(val_threads)])
-        else:
-            args.extend(["--threads", "max"])
+        val_threads = validate_threads(threads)
+        args.extend(["--threads", str(val_threads)])
 
         if no_asegdkt:
             args.append("--no_asegdkt")

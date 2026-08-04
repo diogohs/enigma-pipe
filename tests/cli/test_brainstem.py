@@ -65,7 +65,7 @@ def test_brainstem_command_happy_path(tmp_path, mock_brainstem_segmentation, moc
     args, _ = mock_brainstem_segmentation.call_args
     assert args[0] == input_dir  # output_dir
     assert args[1] == "case-01" # case_id
-    assert args[2] is None     # threads
+    assert args[2] == 1     # threads
 
     manifest = read_manifest(input_dir, "case-01", "brainstem")
     assert manifest is not None
