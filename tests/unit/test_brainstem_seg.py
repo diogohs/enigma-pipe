@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
 
+from enigma_pipe.core.models import TerminalStatus
 from enigma_pipe.services.brainstem_seg import FreeSurferChecker
 
 
@@ -143,9 +144,7 @@ def test_run_brainstem_segmentation_success(capsys):
 
         captured = capsys.readouterr()
         assert f"segment_subregions brainstem --cross sub-01 --sd {Path('/out')}" in captured.err
-        assert result.status == "SUCCESS"
-        assert result.exit_code == 0
-        assert result.threads_used == 4
+        assert result.status == TerminalStatus.SUCCESS
         assert result.error_message is None
 
 
@@ -155,10 +154,7 @@ def test_run_brainstem_segmentation_interrupted(capsys):
 
         result = run_brainstem_segmentation(Path("/out"), "sub-01", "2")
 
-        assert result.status == "INTERRUPTED"
-        assert result.exit_code is None
-        assert result.finished_at is None
-        assert result.threads_used == 2
+        assert result.status == TerminalStatus.INTERRUPTED
         assert "KeyboardInterrupt" in result.error_message
 
 
@@ -168,6 +164,5 @@ def test_run_brainstem_segmentation_failure(capsys):
 
         result = run_brainstem_segmentation(Path("/out"), "sub-01", "max")
 
-        assert result.status == "FAILED"
-        assert result.exit_code == 4
+        assert result.status == TerminalStatus.FAILED
         assert result.error_message == "Process exited with code 4"

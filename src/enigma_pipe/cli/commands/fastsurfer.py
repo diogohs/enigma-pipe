@@ -55,6 +55,9 @@ def fastsurfer_main(
     skip_version_check: bool = typer.Option(
         False, "--skip-version-check", help="Bypass FastSurfer version check"
     ),
+    image_sif: str | None = typer.Option(
+        None, "--image-sif", help="Path to a custom Apptainer/Singularity .sif container file"
+    ),
 ):
     setup_logging(output_dir)
     settings = load_settings(state.settings_path)
@@ -72,7 +75,7 @@ def fastsurfer_main(
     FreeSurferChecker.check_availability()
 
     try:
-        runner = FastSurferRunner(mode=ExecutionMode(execution_mode))
+        runner = FastSurferRunner(mode=ExecutionMode(execution_mode), image=image_sif)
         if not skip_version_check:
             raw_version = runner.check_version()
             res, ver = check_fastsurfer_version(raw_version)
@@ -140,7 +143,7 @@ def fastsurfer_main(
                 status = TerminalStatus.SUCCESS
                 if not no_brainstem:
                     brainstem_result = run_brainstem_segmentation(
-                        output_dir, case.id, int(threads) if threads and threads.isdigit() else None
+                        output_dir, case.id, threads
                     )
 
                     # Handle brainstem segmentation outcome

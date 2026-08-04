@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "enigma-pipe"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Enigma Pipe CLI"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -36,6 +36,9 @@ dev = [
 
 [project.scripts]
 enigma-pipe = "enigma_pipe.cli.main:app"
+
+[tool.hatch.version]
+path = "src/enigma_pipe/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/enigma_pipe"]
