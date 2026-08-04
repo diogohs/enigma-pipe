@@ -32,9 +32,9 @@ class MRIQCRunner(ContainerRunner):
     NIfTI files instead, a minimal BIDS dataset is generated automatically
     before MRIQC is started.
 
-    For Docker, the default image is ``nipreps/mriqc:latest``. For Singularity
-    or Apptainer, the default is ``~/containers/mriqc_latest.sif``. A custom
-    image can be supplied to the constructor or through the environment
+    For Docker, the image is strictly fixed to ``nipreps/mriqc:latest``. For Singularity
+    or Apptainer, the default is ``~/enigma-pipe/images/mriqc.sif``. A custom
+    Singularity/Apptainer image can be supplied to the constructor or through the environment
     variable ``ENIGMA_PIPE_MRIQC_IMAGE``.
     """
 
@@ -43,19 +43,34 @@ class MRIQCRunner(ContainerRunner):
         mode: ExecutionMode,
         image: str | None = None,
     ):
-        configured_image = image or os.environ.get("ENIGMA_PIPE_MRIQC_IMAGE")
-
-        if configured_image is None:
-            if mode == ExecutionMode.DOCKER:
-                configured_image = "nipreps/mriqc:latest"
-            else:
+        if mode == ExecutionMode.DOCKER:
+            configured_image = "nipreps/mriqc:latest"
+        else:
+            configured_image = image or os.environ.get("ENIGMA_PIPE_MRIQC_IMAGE")
+            if configured_image is None:
                 configured_image = str(
                     Path.home() / "enigma-pipe" / "images" / "mriqc.sif"
                 )
+            configured_image = os.path.expandvars(
+                os.path.expanduser(configured_image)
+            )
 
-        configured_image = os.path.expandvars(
-            os.path.expanduser(configured_image)
-        )
+        # For Singularity/Apptainer, the default is a local SIF file. A URI
+        # such as docker://... is also accepted when explicitly supplied.
+        if mode in (ExecutionMode.SINGULARITY, ExecutionMode.APPTAINER):
+            if "://" not in configured_image:
+                image_path = Path(configured_image)
+                if not image_path.is_file():
+                    raise MissingDependencyError(
+                        "MRIQC Singularity/Apptainer image not found "
+                        f"at {image_path}. Create it with:\n"
+                        f'  mkdir -p "{image_path.parent}"\n'
+                        f'  singularity build "{image_path}" '
+                        "docker://nipreps/mriqc:latest\n"
+                        "Alternatively, set ENIGMA_PIPE_MRIQC_IMAGE "
+                        "to another .sif image or pass --image-sif."
+                    )
+                configured_image = str(image_path.resolve())
 
         super().__init__(mode, configured_image)
 

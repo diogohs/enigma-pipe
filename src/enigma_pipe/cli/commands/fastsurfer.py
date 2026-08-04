@@ -12,7 +12,7 @@ from enigma_pipe.cli.formatting import (
 )
 from enigma_pipe.cli.main import app, state
 from enigma_pipe.core.config import load_settings
-from enigma_pipe.core.exceptions import MissingDependencyError
+from enigma_pipe.core.exceptions import InvalidSettingsError, MissingDependencyError
 from enigma_pipe.core.manifest import CompletionManifest, write_manifest
 from enigma_pipe.core.models import (
     ExecutionMode,
@@ -20,6 +20,7 @@ from enigma_pipe.core.models import (
     ProcessingMode,
     TerminalStatus,
 )
+from enigma_pipe.core.validation import validate_threads
 from enigma_pipe.services.brainstem_seg import FreeSurferChecker, run_brainstem_segmentation
 from enigma_pipe.services.case_discovery import discover_cases
 from enigma_pipe.services.fastsurfer import FastSurferRunner
@@ -60,6 +61,12 @@ def fastsurfer_main(
     ),
 ):
     setup_logging(output_dir)
+    try:
+        threads = validate_threads(threads)
+    except InvalidSettingsError as e:
+        print_error(str(e))
+        raise typer.Exit(2)
+
     settings = load_settings(state.settings_path)
     license_path = fs_license or settings.fs_license
 
