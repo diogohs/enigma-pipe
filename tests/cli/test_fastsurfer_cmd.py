@@ -387,3 +387,27 @@ def test_quickstart_validation_smoke(tmp_path):
     )
     # This will run if segment_subregions is available on PATH
     assert result.exit_code in (0, 4)
+
+
+def test_fastsurfer_invalid_threads(tmp_path):
+    input_dir = tmp_path / "in"
+    input_dir.mkdir()
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+    fs_license = tmp_path / "license.txt"
+    fs_license.write_text("license")
+
+    result = runner.invoke(
+        app,
+        [
+            "fastsurfer",
+            "--fs-license",
+            str(fs_license),
+            str(input_dir),
+            str(out_dir),
+            "--threads",
+            "invalid_val",
+        ],
+    )
+    assert result.exit_code == 2
+    assert "Invalid --threads value" in result.output

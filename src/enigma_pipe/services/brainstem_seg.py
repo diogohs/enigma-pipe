@@ -77,21 +77,23 @@ class FreeSurferChecker:
                 )
 
 
+from enigma_pipe.core.validation import validate_threads
+
+
 def compute_threads(threads_arg: int | str | None) -> int:
     if threads_arg is None:
         return 1
-    if isinstance(threads_arg, str):
-        if threads_arg.lower() == "max":
-            if hasattr(os, "sched_getaffinity"):
-                try:
-                    cpus = len(os.sched_getaffinity(0))
-                    return max(1, cpus // 2)
-                except Exception:
-                    pass
-            cpus = os.cpu_count() or 1
-            return max(1, cpus // 2)
-        return max(1, int(threads_arg))
-    return max(1, int(threads_arg))
+    validated = validate_threads(threads_arg)
+    if validated == "max":
+        if hasattr(os, "sched_getaffinity"):
+            try:
+                cpus = len(os.sched_getaffinity(0))
+                return max(1, cpus // 2)
+            except Exception:
+                pass
+        cpus = os.cpu_count() or 1
+        return max(1, cpus // 2)
+    return int(validated)
 
 
 def run_brainstem_segmentation(

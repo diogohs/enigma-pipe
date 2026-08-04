@@ -8,6 +8,7 @@ import subprocess
 from enigma_pipe.cli.formatting import print_info
 from enigma_pipe.core.exceptions import MissingDependencyError
 from enigma_pipe.core.models import ExecutionMode
+from enigma_pipe.core.validation import validate_threads
 from enigma_pipe.services.container import ContainerRunner
 
 
@@ -27,19 +28,17 @@ class FastSurferRunner(ContainerRunner):
     FASTSURFER_ENTRYPOINT = "/fastsurfer/run_fastsurfer.sh"
 
     def __init__(self, mode: ExecutionMode, image: str | None = None):
-        configured_image = image or os.environ.get(
-            "ENIGMA_PIPE_FASTSURFER_IMAGE"
-        )
-
-        if configured_image is None:
-            if mode == ExecutionMode.DOCKER:
-                configured_image = self.DOCKER_IMAGE
-            else:
+        if mode == ExecutionMode.DOCKER:
+            configured_image = self.DOCKER_IMAGE
+        else:
+            configured_image = image or os.environ.get(
+                "ENIGMA_PIPE_FASTSURFER_IMAGE"
+            )
+            if configured_image is None:
                 configured_image = str(self.DEFAULT_SIF_IMAGE)
-
-        configured_image = os.path.expandvars(
-            os.path.expanduser(configured_image)
-        )
+            configured_image = os.path.expandvars(
+                os.path.expanduser(configured_image)
+            )
 
         # For Singularity/Apptainer, the default is a local SIF file. A URI
         # such as docker://... is also accepted when explicitly supplied.
@@ -135,7 +134,8 @@ class FastSurferRunner(ContainerRunner):
         ]
 
         if threads:
-            args.extend(["--threads", str(threads)])
+            val_threads = validate_threads(threads)
+            args.extend(["--threads", str(val_threads)])
         else:
             args.extend(["--threads", "max"])
 

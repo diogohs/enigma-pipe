@@ -87,6 +87,14 @@ def test_brainstem_command_with_threads(tmp_path, mock_brainstem_segmentation, m
     assert args[2] == 4
 
 
+def test_brainstem_command_invalid_threads(tmp_path):
+    input_dir = tmp_path / "in"
+    input_dir.mkdir()
+    result = runner.invoke(app, ["brainstem", str(input_dir), "--threads", "abc"])
+    assert result.exit_code == 2
+    assert "Invalid --threads value" in result.output
+
+
 def test_brainstem_command_args_passed_to_discover(tmp_path, mock_brainstem_segmentation, mock_discover_fs_cases):
     input_dir = tmp_path / "in"
     input_dir.mkdir()

@@ -348,7 +348,7 @@ export ENIGMA_PIPE_FS_LICENSE=/opt/freesurfer/license.txt
 export ENIGMA_PIPE_REVIEWER_ID=reviewer_01
 ```
 
-Container image overrides (useful when images are not in the default `~/containers/` location):
+Container image overrides (useful when images are not in the default `~/enigma-pipe/images` location):
 
 ```bash
 export ENIGMA_PIPE_FASTSURFER_IMAGE=/data/containers/fastsurfer.sif

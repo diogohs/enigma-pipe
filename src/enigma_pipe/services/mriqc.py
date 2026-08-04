@@ -33,7 +33,7 @@ class MRIQCRunner(ContainerRunner):
     before MRIQC is started.
 
     For Docker, the default image is ``nipreps/mriqc:latest``. For Singularity
-    or Apptainer, the default is ``~/containers/mriqc_latest.sif``. A custom
+    or Apptainer, the default is ``~/enigma-pipe/images/mriqc.sif``. A custom
     image can be supplied to the constructor or through the environment
     variable ``ENIGMA_PIPE_MRIQC_IMAGE``.
     """
@@ -43,19 +43,17 @@ class MRIQCRunner(ContainerRunner):
         mode: ExecutionMode,
         image: str | None = None,
     ):
-        configured_image = image or os.environ.get("ENIGMA_PIPE_MRIQC_IMAGE")
-
-        if configured_image is None:
-            if mode == ExecutionMode.DOCKER:
-                configured_image = "nipreps/mriqc:latest"
-            else:
+        if mode == ExecutionMode.DOCKER:
+            configured_image = "nipreps/mriqc:latest"
+        else:
+            configured_image = image or os.environ.get("ENIGMA_PIPE_MRIQC_IMAGE")
+            if configured_image is None:
                 configured_image = str(
                     Path.home() / "enigma-pipe" / "images" / "mriqc.sif"
                 )
-
-        configured_image = os.path.expandvars(
-            os.path.expanduser(configured_image)
-        )
+            configured_image = os.path.expandvars(
+                os.path.expanduser(configured_image)
+            )
 
         super().__init__(mode, configured_image)
 
