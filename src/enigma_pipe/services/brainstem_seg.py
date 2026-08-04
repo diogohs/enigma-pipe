@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from enigma_pipe.core.models import CaseOutcome, TerminalStatus
+from enigma_pipe.core.validation import validate_threads
 
 
 def validate_fastsurfer_output(case_dir: Path) -> None:
@@ -77,14 +78,23 @@ class FreeSurferChecker:
                 )
 
 
-def compute_threads(threads_arg: int | None) -> int:
-    if threads_arg is None:
-        return 1
-    return max(1, threads_arg)
+
+def compute_threads(threads_arg: int | str | None) -> int:
+    validated = validate_threads(threads_arg)
+    if validated == "max":
+        if hasattr(os, "sched_getaffinity"):
+            try:
+                cpus = len(os.sched_getaffinity(0))
+                return max(1, cpus // 2)
+            except Exception:
+                pass
+        cpus = os.cpu_count() or 1
+        return max(1, cpus // 2)
+    return int(validated)
 
 
 def run_brainstem_segmentation(
-    output_dir: Path, case_id: str, threads_arg: int | None
+    output_dir: Path, case_id: str, threads_arg: int | str | None
 ) -> CaseOutcome:
     start_time = datetime.now(timezone.utc)
     threads = compute_threads(threads_arg)
@@ -98,17 +108,15 @@ def run_brainstem_segmentation(
         "--sd",
         str(output_dir),
     ]
-    if threads_arg is not None:
-        cmd.extend(["--threads", str(threads)])
+    cmd.extend(["--threads", str(threads)])
 
     # Print to stderr before execution
     sys.stderr.write(f"Executing: {' '.join(cmd)}\n")
 
     # Execute
     env = os.environ.copy()
-    if threads_arg is not None:
-        env["OMP_NUM_THREADS"] = str(threads)
-        env["ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS"] = str(threads)
+    env["OMP_NUM_THREADS"] = str(threads)
+    env["ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS"] = str(threads)
 
     try:
         result = subprocess.run(cmd, env=env, check=False)

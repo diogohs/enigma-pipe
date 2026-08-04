@@ -6,6 +6,9 @@ A command-line interface for running containerized neuroimaging pipelines. It wr
 
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
+- [Container Images](#container-images)
+  - [Option A: Docker](#option-a-docker)
+  - [Option B: Singularity / Apptainer](#option-b-singularity--apptainer)
 - [Quick Start](#quick-start)
 - [Commands](#commands)
   - [fastsurfer](#fastsurfer)
@@ -30,7 +33,7 @@ A command-line interface for running containerized neuroimaging pipelines. It wr
 | Dependency | Required By | Notes |
 |---|---|---|
 | Python >= 3.10 | All | Runtime environment. |
-| Docker, Singularity, or Apptainer | `fastsurfer`, `mriqc` | At least one container runtime must be available on `PATH`. |
+| Docker **or** Singularity/Apptainer | `fastsurfer`, `mriqc` | At least one container runtime must be available on `PATH`. See [Container Images](#container-images) below. |
 | FreeSurfer (>= 7.3) | `fastsurfer`, `brainstem` | `segment_subregions` must be on `PATH`. A valid FreeSurfer license file is required. |
 | ITK-SNAP | `qc-img`, `qc-seg` | Must be on `PATH` or specified via settings. |
 | ANTsPy | `slicer` | Installed automatically as a Python dependency (`antspyx`). |
@@ -40,7 +43,7 @@ A command-line interface for running containerized neuroimaging pipelines. It wr
 Clone the repository:
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/diogohs/enigma-pipe.git
 cd enigma-pipe
 ```
 
@@ -73,6 +76,73 @@ pip install -e ".[dev]"
 ```bash
 enigma-pipe --help
 ```
+
+---
+
+## Container Images
+
+`enigma-pipe` delegates the heavy processing to containers. You need to obtain the images before running `fastsurfer` or `mriqc`. Choose **one** of the two approaches below.
+
+### Option A: Docker
+
+Docker downloads images automatically on first use — no extra steps needed. Make sure the Docker daemon is running:
+
+```bash
+docker info
+```
+
+Images used:
+
+| Command | Image |
+|---|---|
+| `fastsurfer` | `deepmi/fastsurfer:latest` |
+| `mriqc` | `nipreps/mriqc:latest` |
+
+### Option B: Singularity / Apptainer
+
+Singularity and Apptainer work with local `.sif` files. You must build the images before running the pipeline. Run the commands below **once** on your system:
+
+```bash
+# Create the folder that will hold the container images
+mkdir -p "$HOME/enigma-pipe/images"
+
+# Build FastSurfer
+singularity build \
+    "$HOME/enigma-pipe/images/fastsurfer.sif" \
+    docker://deepmi/fastsurfer:latest
+
+# Build MRIQC
+singularity build \
+    "$HOME/enigma-pipe/images/mriqc.sif" \
+    docker://nipreps/mriqc:latest
+```
+
+> **Note:** Replace `singularity` with `apptainer` if that is the command on your system. The flags and arguments are identical.
+
+Verify that both images were created successfully:
+
+```bash
+ls -lh "$HOME/enigma-pipe/images/"*.sif
+```
+
+Expected output (sizes will vary):
+
+```
+-rw-r--r-- 1 user group 12G ... fastsurfer.sif
+-rw-r--r-- 1 user group  8G ... mriqc.sif
+```
+
+By default, `enigma-pipe` looks for images at `~/enigma-pipe/images/fastsurfer.sif` and `~/enigma-pipe/images/mriqc.sif`. If you saved them elsewhere, use the `--image-sif` option or the environment variables described in [Configuration](#configuration).
+
+#### How FastSurfer is called inside the container
+
+When running with Singularity or Apptainer, `enigma-pipe` invokes FastSurfer through its main script:
+
+```
+/fastsurfer/run_fastsurfer.sh
+```
+
+This is the standard interface used by all FastSurfer installation modes. Unlike Docker (which uses the image entrypoint automatically), `singularity exec` requires the script to be stated explicitly — `enigma-pipe` handles this for you.
 
 ## Quick Start
 
@@ -110,6 +180,7 @@ enigma-pipe fastsurfer INPUT_DIR OUTPUT_DIR [OPTIONS]
 | `OUTPUT_DIR` | path (required) | -- | Output directory for processed results. |
 | `--fs-license` | path | None | Path to FreeSurfer license file. Required unless set in YAML settings. |
 | `--execution-mode` | string | `docker` | Container runtime: `docker`, `singularity`, or `apptainer`. |
+| `--image-sif` | path | `~/enigma-pipe/images/fastsurfer.sif` | Path to a custom Apptainer/Singularity `.sif` file. Overrides `ENIGMA_PIPE_FASTSURFER_IMAGE`. |
 | `--processing-mode` | string | `all` | Case selection: `all`, `continue`, or path to a selection file. |
 | `--existing-output` | string | `error` | Policy when output exists: `error`, `skip`, `resume`, or `replace`. |
 | `--device` | string | `cpu` | Compute device: `cpu`, `gpu`, or `cuda`. |
@@ -142,18 +213,23 @@ enigma-pipe brainstem INPUT_DIR [OPTIONS]
 
 ### mriqc
 
-Runs the MRIQC automated image quality assessment pipeline via a container runtime. Input must be a valid BIDS dataset.
+Runs the MRIQC automated image quality assessment pipeline via a container runtime.
+
+The input directory can be:
+- An existing **BIDS dataset** (containing `dataset_description.json` and T1w images under `sub-*/anat/`); or
+- A plain directory with **loose `.nii` / `.nii.gz` T1-weighted images** — `enigma-pipe` will automatically create a temporary BIDS structure before calling MRIQC.
 
 ```bash
-enigma-pipe mriqc BIDS_DIR OUTPUT_DIR [WORK_DIR] [OPTIONS]
+enigma-pipe mriqc INPUT_DIR OUTPUT_DIR [WORK_DIR] [OPTIONS]
 ```
 
 | Argument / Option | Type | Default | Description |
 |---|---|---|---|
-| `BIDS_DIR` | path (required) | -- | Input directory in BIDS format. |
+| `INPUT_DIR` | path (required) | -- | BIDS dataset or directory containing loose T1w NIfTI images. |
 | `OUTPUT_DIR` | path (required) | -- | Output directory for MRIQC results. |
 | `WORK_DIR` | path (optional) | None | Scratch/working directory. |
 | `--execution-mode` | string | `docker` | Container runtime: `docker`, `singularity`, or `apptainer`. |
+| `--image-sif` | path | `~/enigma-pipe/images/mriqc.sif` | Path to a custom Apptainer/Singularity `.sif` file. Overrides `ENIGMA_PIPE_MRIQC_IMAGE`. |
 | `--participant-label` | list | None | Restrict processing to specific participant labels. |
 | `--nprocs` | integer | None | Number of processors to use. |
 
@@ -263,12 +339,23 @@ Unknown keys are rejected at startup (exit code 2).
 
 ### Environment Variables
 
-All settings can also be provided via environment variables prefixed with `ENIGMA_PIPE_`. Nested keys use double underscores as delimiters. For example:
+All settings can also be provided via environment variables prefixed with `ENIGMA_PIPE_`. Nested keys use double underscores as delimiters.
+
+General settings:
 
 ```bash
 export ENIGMA_PIPE_FS_LICENSE=/opt/freesurfer/license.txt
 export ENIGMA_PIPE_REVIEWER_ID=reviewer_01
 ```
+
+Container image overrides (useful when images are not in the default `~/enigma-pipe/images` location):
+
+```bash
+export ENIGMA_PIPE_FASTSURFER_IMAGE=/data/containers/fastsurfer.sif
+export ENIGMA_PIPE_MRIQC_IMAGE=/data/containers/mriqc.sif
+```
+
+These variables are overridden by the `--image-sif` CLI option.
 
 ### Precedence
 

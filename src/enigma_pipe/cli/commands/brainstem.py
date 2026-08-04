@@ -18,6 +18,7 @@ from enigma_pipe.services.brainstem_seg import (
 )
 from enigma_pipe.core.exceptions import InvalidSettingsError
 from enigma_pipe.core.manifest import read_manifest
+from enigma_pipe.core.validation import validate_threads
 
 class DiscoveryResult(list):
     def __init__(self, cases, total_found=0, skipped_count=0):
@@ -94,8 +95,14 @@ def brainstem_main(
     existing_output: ExistingOutputPolicy = typer.Option(
         ExistingOutputPolicy.ERROR, "--existing-output", help="Action when output exists: 'error' (abort), 'skip' (ignore), 'resume' (continue partial), 'replace' (overwrite)"
     ),
-    threads: int | None = typer.Option(None, "--threads", help="Thread count"),
+    threads: str | None = typer.Option(None, "--threads", help="Thread count or 'max'"),
 ):
+    try:
+        threads = validate_threads(threads)
+    except InvalidSettingsError as e:
+        print_error(str(e))
+        raise typer.Exit(2)
+
     FreeSurferChecker.check_availability()
 
     try:

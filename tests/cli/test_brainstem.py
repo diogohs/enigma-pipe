@@ -65,7 +65,7 @@ def test_brainstem_command_happy_path(tmp_path, mock_brainstem_segmentation, moc
     args, _ = mock_brainstem_segmentation.call_args
     assert args[0] == input_dir  # output_dir
     assert args[1] == "case-01" # case_id
-    assert args[2] is None     # threads
+    assert args[2] == 1     # threads
 
     manifest = read_manifest(input_dir, "case-01", "brainstem")
     assert manifest is not None
@@ -85,6 +85,14 @@ def test_brainstem_command_with_threads(tmp_path, mock_brainstem_segmentation, m
     mock_brainstem_segmentation.assert_called_once()
     args, _ = mock_brainstem_segmentation.call_args
     assert args[2] == 4
+
+
+def test_brainstem_command_invalid_threads(tmp_path):
+    input_dir = tmp_path / "in"
+    input_dir.mkdir()
+    result = runner.invoke(app, ["brainstem", str(input_dir), "--threads", "abc"])
+    assert result.exit_code == 2
+    assert "Invalid --threads value" in result.output
 
 
 def test_brainstem_command_args_passed_to_discover(tmp_path, mock_brainstem_segmentation, mock_discover_fs_cases):

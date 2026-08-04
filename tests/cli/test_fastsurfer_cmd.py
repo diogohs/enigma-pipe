@@ -133,7 +133,7 @@ def test_fastsurfer_brainstem_seg_integration(tmp_path, monkeypatch):
 
     # sub-01 succeeded in FS, so brainstem seg should have been called
     # sub-02 failed in FS, so brainstem seg should NOT have been called
-    mock_run_brainstem.assert_called_once_with(out_dir, "sub-01", None)
+    mock_run_brainstem.assert_called_once_with(out_dir, "sub-01", 1)
     
     from enigma_pipe.core.manifest import read_manifest
     manifest = read_manifest(out_dir, "sub-01", "brainstem")
@@ -387,3 +387,27 @@ def test_quickstart_validation_smoke(tmp_path):
     )
     # This will run if segment_subregions is available on PATH
     assert result.exit_code in (0, 4)
+
+
+def test_fastsurfer_invalid_threads(tmp_path):
+    input_dir = tmp_path / "in"
+    input_dir.mkdir()
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+    fs_license = tmp_path / "license.txt"
+    fs_license.write_text("license")
+
+    result = runner.invoke(
+        app,
+        [
+            "fastsurfer",
+            "--fs-license",
+            str(fs_license),
+            str(input_dir),
+            str(out_dir),
+            "--threads",
+            "invalid_val",
+        ],
+    )
+    assert result.exit_code == 2
+    assert "Invalid --threads value" in result.output
