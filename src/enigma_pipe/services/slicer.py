@@ -22,6 +22,7 @@ def apply_overlay(
 ) -> Image.Image:
     """Apply segmentation overlay with erosion and colors from LUT."""
     import colorsys
+
     h, w = bg.shape
     out = np.zeros((h, w, 3), dtype=np.uint8)
 
@@ -36,7 +37,7 @@ def apply_overlay(
         if not lut:
             hue = (idx * 137.508) % 360 / 360.0
             r, g, b = colorsys.hls_to_rgb(hue, 0.6, 0.9)
-            color = np.array([int(r*255), int(g*255), int(b*255)])
+            color = np.array([int(r * 255), int(g * 255), int(b * 255)])
         else:
             if label not in lut:
                 continue
@@ -106,14 +107,14 @@ def generate_captures(
     ]
 
     generated_files = []
-    
+
     step = 1 if skip_level == 0 else max(1, skip_level)
 
     for plane_name, axis, pmin, pmax in planes:
         # Sample slices based on skip_level
         if pmax <= pmin:
             continue
-        
+
         indices = list(range(pmin, pmax, step))
         plane_images = []
 
@@ -166,7 +167,7 @@ def generate_captures(
             img_labeled = img.copy()
             draw = ImageDraw.Draw(img_labeled)
             w, h = img_labeled.size
-            
+
             def draw_text(pos, text, align="center"):
                 tw = draw.textlength(text) if hasattr(draw, "textlength") else len(text) * 6
                 th = 10
@@ -177,17 +178,17 @@ def generate_captures(
                 elif align == "bottom_right":
                     x -= tw
                     y -= th
-                
+
                 for dx in [-1, 0, 1]:
                     for dy in [-1, 0, 1]:
-                        draw.text((x+dx, y+dy), text, fill="black")
+                        draw.text((x + dx, y + dy), text, fill="black")
                 draw.text((x, y), text, fill="white")
 
-            draw_text((w/2, 8), labels["top"], "center")
-            draw_text((w/2, h - 8), labels["bottom"], "center")
-            draw_text((8, h/2), labels["left"], "center")
-            draw_text((w - 8, h/2), labels["right"], "center")
-            
+            draw_text((w / 2, 8), labels["top"], "center")
+            draw_text((w / 2, h - 8), labels["bottom"], "center")
+            draw_text((8, h / 2), labels["left"], "center")
+            draw_text((w - 8, h / 2), labels["right"], "center")
+
             draw_text((w - 4, h - 4), f"Slice {s}", "bottom_right")
 
             filename = f"{plane_name}_{s}.{fmt}"
@@ -197,7 +198,7 @@ def generate_captures(
             else:
                 out_path = output_dir / case_id / filename
                 rel_path = filename
-                
+
             img_labeled.save(out_path)
             plane_images.append((img, s, labels))
             generated_files.append(rel_path)
@@ -210,44 +211,56 @@ def generate_captures(
             else:
                 svg_out_path = output_dir / case_id / svg_filename
                 rel_svg_path = svg_filename
-                
+
             N = len(plane_images)
             ncols = min(10, int(np.ceil(np.sqrt(N))))
             if ncols == 0:
                 ncols = 1
             nrows = int(np.ceil(N / ncols))
-            
+
             img_w, img_h = plane_images[0][0].size
             grid_w = ncols * img_w
             grid_h = nrows * img_h
-            
+
             svg_content = [
                 f'<svg width="{grid_w}" height="{grid_h}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">'
             ]
-            
+
             for i, (p_img, p_idx, p_labels) in enumerate(plane_images):
                 row = i // ncols
                 col = i % ncols
                 x = col * img_w
                 y = row * img_h
-                
+
                 buffered = BytesIO()
                 p_img.save(buffered, format=fmt.upper() if fmt.lower() != "jpg" else "JPEG")
                 img_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
                 b64 = f"data:image/{fmt.lower()};base64,{img_str}"
-                
+
                 svg_content.append(f'  <g transform="translate({x}, {y})">')
-                svg_content.append(f'    <image href="{b64}" width="{img_w}" height="{img_h}" style="image-rendering: optimizeSpeed; image-rendering: pixelated; image-rendering: crisp-edges;" />')
-                
+                svg_content.append(
+                    f'    <image href="{b64}" width="{img_w}" height="{img_h}" style="image-rendering: optimizeSpeed; image-rendering: pixelated; image-rendering: crisp-edges;" />'
+                )
+
                 # Reconstruct vectorized text in SVG
-                svg_content.append(f'    <text x="{img_w/2}" y="12" fill="white" font-size="12" font-family="sans-serif" font-weight="bold" text-anchor="middle" stroke="black" stroke-width="2" paint-order="stroke fill">{p_labels["top"]}</text>')
-                svg_content.append(f'    <text x="{img_w/2}" y="{img_h - 4}" fill="white" font-size="12" font-family="sans-serif" font-weight="bold" text-anchor="middle" stroke="black" stroke-width="2" paint-order="stroke fill">{p_labels["bottom"]}</text>')
-                svg_content.append(f'    <text x="12" y="{img_h/2 + 4}" fill="white" font-size="12" font-family="sans-serif" font-weight="bold" text-anchor="middle" stroke="black" stroke-width="2" paint-order="stroke fill">{p_labels["left"]}</text>')
-                svg_content.append(f'    <text x="{img_w - 12}" y="{img_h/2 + 4}" fill="white" font-size="12" font-family="sans-serif" font-weight="bold" text-anchor="middle" stroke="black" stroke-width="2" paint-order="stroke fill">{p_labels["right"]}</text>')
-                svg_content.append(f'    <text x="{img_w - 4}" y="{img_h - 4}" fill="white" font-size="12" font-family="sans-serif" font-weight="bold" text-anchor="end" stroke="black" stroke-width="2" paint-order="stroke fill">Slice {p_idx}</text>')
-                svg_content.append('  </g>')
-            
-            svg_content.append('</svg>')
+                svg_content.append(
+                    f'    <text x="{img_w/2}" y="12" fill="white" font-size="12" font-family="sans-serif" font-weight="bold" text-anchor="middle" stroke="black" stroke-width="2" paint-order="stroke fill">{p_labels["top"]}</text>'
+                )
+                svg_content.append(
+                    f'    <text x="{img_w/2}" y="{img_h - 4}" fill="white" font-size="12" font-family="sans-serif" font-weight="bold" text-anchor="middle" stroke="black" stroke-width="2" paint-order="stroke fill">{p_labels["bottom"]}</text>'
+                )
+                svg_content.append(
+                    f'    <text x="12" y="{img_h/2 + 4}" fill="white" font-size="12" font-family="sans-serif" font-weight="bold" text-anchor="middle" stroke="black" stroke-width="2" paint-order="stroke fill">{p_labels["left"]}</text>'
+                )
+                svg_content.append(
+                    f'    <text x="{img_w - 12}" y="{img_h/2 + 4}" fill="white" font-size="12" font-family="sans-serif" font-weight="bold" text-anchor="middle" stroke="black" stroke-width="2" paint-order="stroke fill">{p_labels["right"]}</text>'
+                )
+                svg_content.append(
+                    f'    <text x="{img_w - 4}" y="{img_h - 4}" fill="white" font-size="12" font-family="sans-serif" font-weight="bold" text-anchor="end" stroke="black" stroke-width="2" paint-order="stroke fill">Slice {p_idx}</text>'
+                )
+                svg_content.append("  </g>")
+
+            svg_content.append("</svg>")
             svg_out_path.write_text("\n".join(svg_content), encoding="utf-8")
             generated_files.append(rel_svg_path)
 

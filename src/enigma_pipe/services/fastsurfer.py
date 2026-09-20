@@ -22,23 +22,17 @@ class FastSurferRunner(ContainerRunner):
     """
 
     DOCKER_IMAGE = "deepmi/fastsurfer:latest"
-    DEFAULT_SIF_IMAGE = (
-        Path.home() / "enigma-pipe" / "images" / "fastsurfer.sif"
-    )
+    DEFAULT_SIF_IMAGE = Path.home() / "enigma-pipe" / "images" / "fastsurfer.sif"
     FASTSURFER_ENTRYPOINT = "/fastsurfer/run_fastsurfer.sh"
 
     def __init__(self, mode: ExecutionMode, image: str | None = None):
         if mode == ExecutionMode.DOCKER:
             configured_image = self.DOCKER_IMAGE
         else:
-            configured_image = image or os.environ.get(
-                "ENIGMA_PIPE_FASTSURFER_IMAGE"
-            )
+            configured_image = image or os.environ.get("ENIGMA_PIPE_FASTSURFER_IMAGE")
             if configured_image is None:
                 configured_image = str(self.DEFAULT_SIF_IMAGE)
-            configured_image = os.path.expandvars(
-                os.path.expanduser(configured_image)
-            )
+            configured_image = os.path.expandvars(os.path.expanduser(configured_image))
 
         # For Singularity/Apptainer, the default is a local SIF file. A URI
         # such as docker://... is also accepted when explicitly supplied.

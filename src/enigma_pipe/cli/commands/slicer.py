@@ -169,7 +169,7 @@ def slicer_main(
                     # 3. Process raw image captures
                     case_out_dir_raw = output_dir / case.id / "image"
                     case_out_dir_raw.mkdir(parents=True, exist_ok=True)
-                    
+
                     raw_captures = generate_captures(
                         t1_data,
                         np.zeros_like(t1_data),
@@ -220,9 +220,13 @@ def slicer_main(
 
                         if not actual_lut_file or not actual_lut_file.exists():
                             try:
-                                res_lut = importlib.resources.files("enigma_pipe.data").joinpath("FreeSurferColorLUT.txt")
+                                res_lut = importlib.resources.files("enigma_pipe.data").joinpath(
+                                    "FreeSurferColorLUT.txt"
+                                )
                                 if res_lut.is_file():
-                                    actual_lut_file = stack.enter_context(importlib.resources.as_file(res_lut))
+                                    actual_lut_file = stack.enter_context(
+                                        importlib.resources.as_file(res_lut)
+                                    )
                             except Exception:
                                 pass
 
@@ -240,7 +244,9 @@ def slicer_main(
                         nib.save(seg_ras, tmp_seg)
 
                         if register:
-                            seg_data = apply_transform(tmp_seg, transform, actual_mni, is_labels=True)
+                            seg_data = apply_transform(
+                                tmp_seg, transform, actual_mni, is_labels=True
+                            )
                         else:
                             seg_data = seg_ras.get_fdata()
 

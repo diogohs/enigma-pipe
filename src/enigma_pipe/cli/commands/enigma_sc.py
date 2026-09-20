@@ -57,12 +57,12 @@ def enigma_sc_main(
     image_sif: str | None = typer.Option(
         None,
         "--image-sif",
-        help="Path to custom Singularity/Apptainer .sif container image",
+        help="Path to custom Singularity/Apptainer .sif container image (default: ~/enigma-pipe/images/pipeline_enigma_cli.sif)",
     ),
     image_docker: str | None = typer.Option(
         None,
         "--image-docker",
-        help="Docker image name or tag",
+        help="Docker image name or tag (default: art2mri/pipeline_enigma_cli:1.0)",
     ),
     processing_mode: ProcessingMode = typer.Option(
         ProcessingMode.ALL,
@@ -171,6 +171,7 @@ def enigma_sc_main(
                 input_nifti_path=case.original_path,
                 output_dir=output_dir,
                 device=device,
+                replace_output=existing_output == ExistingOutputPolicy.REPLACE,
             )
 
             error_msg: str | None = None

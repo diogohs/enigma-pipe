@@ -117,9 +117,7 @@ def test_fastsurfer_brainstem_seg_integration(tmp_path, monkeypatch):
 
     # Mock run_brainstem_segmentation
     mock_run_brainstem = MagicMock()
-    mock_run_brainstem.return_value = CaseOutcome(
-        case_id="sub-01", status=TerminalStatus.SUCCESS
-    )
+    mock_run_brainstem.return_value = CaseOutcome(case_id="sub-01", status=TerminalStatus.SUCCESS)
     monkeypatch.setattr(
         "enigma_pipe.cli.commands.fastsurfer.run_brainstem_segmentation", mock_run_brainstem
     )
@@ -134,8 +132,9 @@ def test_fastsurfer_brainstem_seg_integration(tmp_path, monkeypatch):
     # sub-01 succeeded in FS, so brainstem seg should have been called
     # sub-02 failed in FS, so brainstem seg should NOT have been called
     mock_run_brainstem.assert_called_once_with(out_dir, "sub-01", 1)
-    
+
     from enigma_pipe.core.manifest import read_manifest
+
     manifest = read_manifest(out_dir, "sub-01", "brainstem")
     assert manifest is not None
     assert manifest.status == TerminalStatus.SUCCESS
@@ -198,9 +197,9 @@ def test_fastsurfer_brainstem_seg_failure_exits_4(tmp_path, monkeypatch):
         app, ["fastsurfer", "--fs-license", str(fs_license), str(input_dir), str(out_dir)]
     )
 
-    assert result.exit_code == 4, (
-        f"Expected exit 4, got {result.exit_code}. Output:\n{result.output}"
-    )
+    assert (
+        result.exit_code == 4
+    ), f"Expected exit 4, got {result.exit_code}. Output:\n{result.output}"
     mock_run_brainstem.assert_called_once()
 
 
@@ -216,17 +215,20 @@ def test_fastsurfer_no_brainstem_flag(tmp_path, monkeypatch):
     )
 
     result = runner.invoke(
-        app, [
-            "fastsurfer", 
-            "--fs-license", str(fs_license), 
+        app,
+        [
+            "fastsurfer",
+            "--fs-license",
+            str(fs_license),
             "--no-brainstem",
-            str(input_dir), str(out_dir)
-        ]
+            str(input_dir),
+            str(out_dir),
+        ],
     )
 
-    assert result.exit_code == 0, (
-        f"Expected exit 0, got {result.exit_code}. Output:\n{result.output}"
-    )
+    assert (
+        result.exit_code == 0
+    ), f"Expected exit 0, got {result.exit_code}. Output:\n{result.output}"
     mock_run_brainstem.assert_not_called()
 
 
@@ -251,9 +253,9 @@ def test_fastsurfer_brainstem_seg_interrupted_exits_130(tmp_path, monkeypatch):
         app, ["fastsurfer", "--fs-license", str(fs_license), str(input_dir), str(out_dir)]
     )
 
-    assert result.exit_code == 130, (
-        f"Expected exit 130, got {result.exit_code}. Output:\n{result.output}"
-    )
+    assert (
+        result.exit_code == 130
+    ), f"Expected exit 130, got {result.exit_code}. Output:\n{result.output}"
     mock_run_brainstem.assert_called_once()
 
 
@@ -265,7 +267,7 @@ def test_fastsurfer_brainstem_seg_interrupted_exits_130(tmp_path, monkeypatch):
 #     out_dir.mkdir()
 #     fs_license = tmp_path / "license.txt"
 #     fs_license.write_text("license")
-# 
+#
 #     result = runner.invoke(
 #         app,
 #         [
@@ -278,7 +280,7 @@ def test_fastsurfer_brainstem_seg_interrupted_exits_130(tmp_path, monkeypatch):
 #             str(out_dir),
 #         ],
 #     )
-# 
+#
 #     assert result.exit_code == 3
 #     assert "HPC scheduler submission is not yet implemented" in result.output
 

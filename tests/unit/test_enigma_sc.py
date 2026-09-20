@@ -8,7 +8,9 @@ from enigma_pipe.core.models import ExecutionMode, ExistingOutputPolicy, Process
 from enigma_pipe.services.case_discovery import discover_cases
 from enigma_pipe.services.enigma_sc import (
     DEFAULT_DOCKER_IMAGE,
+    DEFAULT_SIF_IMAGE,
     ENIGMA_SC_ENTRYPOINT,
+    LEGACY_SIF_IMAGE,
     EnigmaSCRunner,
     check_gpu_availability,
     consolidate_group_tables,
@@ -28,15 +30,46 @@ def mock_runtime_available():
 
 
 def test_runner_docker_init_default(mock_runtime_available):
+    assert DEFAULT_DOCKER_IMAGE == "art2mri/pipeline_enigma_cli:1.0"
     runner = EnigmaSCRunner(mode=ExecutionMode.DOCKER)
     assert runner.mode == ExecutionMode.DOCKER
-    assert runner.image == DEFAULT_DOCKER_IMAGE
+    assert runner.image == "art2mri/pipeline_enigma_cli:1.0"
     assert runner._entrypoint() == []
 
 
 def test_runner_docker_init_custom_image(mock_runtime_available):
     runner = EnigmaSCRunner(mode=ExecutionMode.DOCKER, image_docker="my-custom-img:tag")
     assert runner.image == "my-custom-img:tag"
+
+
+def test_runner_singularity_default_sif_resolution(mock_runtime_available, tmp_path, monkeypatch):
+    assert DEFAULT_SIF_IMAGE.name == "pipeline_enigma_cli.sif"
+    assert LEGACY_SIF_IMAGE.name == "pipeline-enigma-cli.sif"
+
+    # Case 1: default SIF does not exist
+    monkeypatch.setattr(
+        "enigma_pipe.services.enigma_sc.DEFAULT_SIF_IMAGE",
+        tmp_path / "pipeline_enigma_cli.sif",
+    )
+    monkeypatch.setattr(
+        "enigma_pipe.services.enigma_sc.LEGACY_SIF_IMAGE",
+        tmp_path / "pipeline-enigma-cli.sif",
+    )
+    with pytest.raises(MissingDependencyError) as exc:
+        EnigmaSCRunner(mode=ExecutionMode.SINGULARITY)
+    assert "pipeline_enigma_cli.sif" in str(exc.value)
+
+    # Case 2: legacy SIF exists, default SIF does not -> falls back to legacy
+    legacy_sif = tmp_path / "pipeline-enigma-cli.sif"
+    legacy_sif.write_text("legacy")
+    runner_legacy = EnigmaSCRunner(mode=ExecutionMode.SINGULARITY)
+    assert runner_legacy.image == str(legacy_sif.resolve())
+
+    # Case 3: default SIF exists -> takes precedence
+    default_sif = tmp_path / "pipeline_enigma_cli.sif"
+    default_sif.write_text("default")
+    runner_default = EnigmaSCRunner(mode=ExecutionMode.SINGULARITY)
+    assert runner_default.image == str(default_sif.resolve())
 
 
 def test_runner_singularity_missing_sif(mock_runtime_available, tmp_path):
@@ -71,6 +104,8 @@ def test_build_case_command_docker(mock_runtime_available, tmp_path):
 
     assert "docker" in cmd
     assert "run" in cmd
+    assert "--user" in cmd
+    assert "0:0" in cmd
     assert "--input-dir" in cmd
     assert "--output-dir" in cmd
     assert "--subject" in cmd
@@ -92,6 +127,8 @@ def test_build_case_command_docker_gpu(mock_runtime_available, tmp_path):
         device="gpu",
     )
 
+    assert "--user" in cmd
+    assert "0:0" in cmd
     assert "--gpus" in cmd
     assert "all" in cmd
 
@@ -114,6 +151,7 @@ def test_build_case_command_singularity_gpu(mock_runtime_available, tmp_path):
 
     assert runner.mode.value in cmd[0]
     assert "exec" in cmd
+    assert "--writable-tmpfs" in cmd
     assert "--nv" in cmd
     assert "python3" in cmd
     assert "/enigma_pipeline.py" in cmd
@@ -137,6 +175,7 @@ def test_build_case_command_apptainer_gpu(mock_runtime_available, tmp_path):
 
     assert runner.mode.value in cmd[0]
     assert "exec" in cmd
+    assert "--writable-tmpfs" in cmd
     assert "--nv" in cmd
     assert "python3" in cmd
     assert "/enigma_pipeline.py" in cmd
@@ -253,6 +292,108 @@ def test_runner_run_case(mock_runtime_available, tmp_path):
         assert not staging_dir.exists()
 
 
+def test_runner_run_case_preserves_nii_extension(mock_runtime_available, tmp_path):
+    runner = EnigmaSCRunner(mode=ExecutionMode.DOCKER)
+    input_file = tmp_path / "patient_01.nii"
+    input_file.write_text("fake nifti")
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
+
+    with (
+        patch.object(runner, "run", return_value=0),
+        patch("enigma_pipe.services.enigma_sc.stage_case_input") as mock_stage,
+    ):
+        runner.run_case("patient_01", input_file, output_dir, device="cpu")
+        assert mock_stage.call_args[0][2] == "patient_01.nii"
+
+
+def test_runner_run_case_replace_output_clears_existing_case(mock_runtime_available, tmp_path):
+    runner = EnigmaSCRunner(mode=ExecutionMode.DOCKER)
+    input_file = tmp_path / "patient_01.nii.gz"
+    input_file.write_text("fake nifti")
+    output_dir = tmp_path / "output"
+    case_out = output_dir / "patient_01"
+    stale_file = case_out / "old.csv"
+    stale_file.parent.mkdir(parents=True)
+    stale_file.write_text("stale")
+
+    def _check_case_cleared(*args, **kwargs):
+        assert not stale_file.exists()
+        return 0
+
+    with patch.object(runner, "run", side_effect=_check_case_cleared):
+        ret = runner.run_case(
+            "patient_01",
+            input_file,
+            output_dir,
+            device="cpu",
+            replace_output=True,
+        )
+        assert ret == 0
+
+
+def test_runner_run_case_chown_cleanup_invoked_as_root(mock_runtime_available, tmp_path, monkeypatch):
+    runner = EnigmaSCRunner(mode=ExecutionMode.DOCKER)
+    input_file = tmp_path / "patient_01.nii.gz"
+    input_file.write_text("fake nifti")
+    output_dir = tmp_path / "output"
+
+    monkeypatch.setattr("os.getuid", lambda: 1000, raising=False)
+    monkeypatch.setattr("os.getgid", lambda: 1000, raising=False)
+
+    captured_cmds: list[list[str]] = []
+
+    def fake_subprocess_run(cmd, *args, **kwargs):
+        captured_cmds.append(cmd)
+        mock = MagicMock()
+        mock.returncode = 0
+        mock.stderr = ""
+        return mock
+
+    with (
+        patch.object(runner, "run", return_value=0),
+        patch("subprocess.run", side_effect=fake_subprocess_run),
+    ):
+        ret = runner.run_case("patient_01", input_file, output_dir, device="cpu")
+        assert ret == 0
+
+        # Find the chown command
+        chown_calls = [c for c in captured_cmds if "chown" in c]
+        assert len(chown_calls) == 1
+        chown_cmd = chown_calls[0]
+        assert "--user" in chown_cmd
+        user_idx = chown_cmd.index("--user")
+        assert chown_cmd[user_idx + 1] == "0:0"
+        assert "1000:1000" in chown_cmd
+
+
+def test_runner_run_case_chown_cleanup_failure_surfaces_warning(tmp_path, monkeypatch):
+    runner = EnigmaSCRunner(mode=ExecutionMode.DOCKER)
+    input_file = tmp_path / "patient_01.nii.gz"
+    input_file.write_text("fake nifti")
+    output_dir = tmp_path / "output"
+
+    monkeypatch.setattr("os.getuid", lambda: 1000, raising=False)
+    monkeypatch.setattr("os.getgid", lambda: 1000, raising=False)
+
+    def fake_subprocess_run(cmd, *args, **kwargs):
+        mock = MagicMock()
+        mock.returncode = 1
+        mock.stderr = "chown: changing ownership: Operation not permitted\n"
+        return mock
+
+    with (
+        patch.object(runner, "run", return_value=0),
+        patch("subprocess.run", side_effect=fake_subprocess_run),
+        patch("enigma_pipe.services.enigma_sc.print_warning") as mock_warn,
+    ):
+        ret = runner.run_case("patient_01", input_file, output_dir, device="cpu")
+        assert ret == 0
+        assert mock_warn.called
+        assert "Could not adjust output permissions" in mock_warn.call_args[0][0]
+        assert "Operation not permitted" in mock_warn.call_args[0][0]
+
+
 def test_is_bids_dataset(tmp_path):
     empty_dir = tmp_path / "empty"
     empty_dir.mkdir()
@@ -294,6 +435,7 @@ def test_stage_case_input(tmp_path):
     assert staged_file.is_file()
     assert staged_file.read_text() == "dummy nifti content"
     assert staged_file.name == "case_01.nii.gz"
+    assert not staged_file.is_symlink()
 
 
 def test_discover_bids_cases(tmp_path):

@@ -15,8 +15,9 @@ from enigma_pipe.services.case_identifier import derive_case_id
 from enigma_pipe.services.container import ContainerRunner
 
 # Default container images
-DEFAULT_DOCKER_IMAGE = "pipeline-enigma-cli:latest"
-DEFAULT_SIF_IMAGE = Path.home() / "enigma-pipe" / "images" / "pipeline-enigma-cli.sif"
+DEFAULT_DOCKER_IMAGE = "art2mri/pipeline_enigma_cli:1.0"
+DEFAULT_SIF_IMAGE = Path.home() / "enigma-pipe" / "images" / "pipeline_enigma_cli.sif"
+LEGACY_SIF_IMAGE = Path.home() / "enigma-pipe" / "images" / "pipeline-enigma-cli.sif"
 ENIGMA_SC_ENTRYPOINT = ["python3", "/enigma_pipeline.py"]
 
 
@@ -198,7 +199,7 @@ def stage_case_input(
     target_filename: str,
 ) -> Path:
     """
-    Stage an input NIfTI file into target_dir using symlink or hardlink,
+    Stage an input NIfTI file into target_dir using hardlink when possible,
     falling back to file copy if linking fails.
     Returns the Path to the staged file.
     """
@@ -209,12 +210,9 @@ def stage_case_input(
 
     resolved_source = source_path.resolve()
     try:
-        staged_path.symlink_to(resolved_source)
-    except (OSError, NotImplementedError):
-        try:
-            os.link(resolved_source, staged_path)
-        except OSError:
-            shutil.copy2(resolved_source, staged_path)
+        os.link(resolved_source, staged_path)
+    except OSError:
+        shutil.copy2(resolved_source, staged_path)
 
     return staged_path
 
@@ -257,9 +255,15 @@ class EnigmaSCRunner(ContainerRunner):
                 or DEFAULT_DOCKER_IMAGE
             )
         else:
-            configured_image = (
-                image_sif or os.environ.get("ENIGMA_PIPE_ENIGMA_SC_IMAGE") or str(DEFAULT_SIF_IMAGE)
-            )
+            if image_sif or os.environ.get("ENIGMA_PIPE_ENIGMA_SC_IMAGE"):
+                configured_image = image_sif or os.environ.get("ENIGMA_PIPE_ENIGMA_SC_IMAGE") or ""
+            else:
+                default_sif = (
+                    DEFAULT_SIF_IMAGE
+                    if DEFAULT_SIF_IMAGE.is_file() or not LEGACY_SIF_IMAGE.is_file()
+                    else LEGACY_SIF_IMAGE
+                )
+                configured_image = str(default_sif)
             configured_image = os.path.expandvars(os.path.expanduser(configured_image))
 
             if "://" not in configured_image:
@@ -279,6 +283,26 @@ class EnigmaSCRunner(ContainerRunner):
             return []
         return list(ENIGMA_SC_ENTRYPOINT)
 
+    def _container_opts(self, device: str = "cpu") -> list[str]:
+        """
+        Build container engine options for ENIGMA-SC.
+        - Docker: run as root (--user 0:0) because the container internally writes scratch files
+          to root-owned directories (/home/SCT, /home/datav2).
+        - Singularity/Apptainer: use --writable-tmpfs so the read-only SIF filesystem allows
+          scratch writes to /home/SCT.
+        - GPU: pass --gpus all (Docker) or --nv (Singularity/Apptainer).
+        """
+        opts: list[str] = []
+        if self.mode == ExecutionMode.DOCKER:
+            opts.extend(["--user", "0:0"])
+            if device.lower() in ("gpu", "cuda"):
+                opts.extend(["--gpus", "all"])
+        elif self.mode in (ExecutionMode.SINGULARITY, ExecutionMode.APPTAINER):
+            opts.append("--writable-tmpfs")
+            if device.lower() in ("gpu", "cuda"):
+                opts.append("--nv")
+        return opts
+
     def build_case_command(
         self,
         case_id: str,
@@ -294,12 +318,7 @@ class EnigmaSCRunner(ContainerRunner):
             (case_out.resolve(), Path("/output_data")),
         ]
 
-        container_opts: list[str] = []
-        if device.lower() in ("gpu", "cuda"):
-            if self.mode == ExecutionMode.DOCKER:
-                container_opts.extend(["--gpus", "all"])
-            elif self.mode in (ExecutionMode.SINGULARITY, ExecutionMode.APPTAINER):
-                container_opts.append("--nv")
+        container_opts = self._container_opts(device)
 
         args = self._entrypoint() + [
             "--input-dir",
@@ -318,6 +337,7 @@ class EnigmaSCRunner(ContainerRunner):
         input_nifti_path: Path,
         output_dir: Path,
         device: str = "cpu",
+        replace_output: bool = False,
     ) -> int:
         """
         Run ENIGMA-SC on a single case.
@@ -325,6 +345,8 @@ class EnigmaSCRunner(ContainerRunner):
         points container output to <output_dir>/<case_id>, and invokes the container.
         """
         case_out = output_dir / case_id
+        if replace_output and case_out.exists():
+            shutil.rmtree(case_out)
         case_out.mkdir(parents=True, exist_ok=True)
 
         # Create ephemeral staging input dir for this case to isolate inputs
@@ -332,19 +354,17 @@ class EnigmaSCRunner(ContainerRunner):
         staging_dir.mkdir(parents=True, exist_ok=True)
 
         try:
-            stage_case_input(input_nifti_path, staging_dir, f"{case_id}.nii.gz")
+            staged_filename = f"{case_id}.nii.gz"
+            if input_nifti_path.name.endswith(".nii"):
+                staged_filename = f"{case_id}.nii"
+            stage_case_input(input_nifti_path, staging_dir, staged_filename)
 
             binds = [
                 (staging_dir.resolve(), Path("/input_data")),
                 (case_out.resolve(), Path("/output_data")),
             ]
 
-            container_opts: list[str] = []
-            if device.lower() in ("gpu", "cuda"):
-                if self.mode == ExecutionMode.DOCKER:
-                    container_opts.extend(["--gpus", "all"])
-                elif self.mode in (ExecutionMode.SINGULARITY, ExecutionMode.APPTAINER):
-                    container_opts.append("--nv")
+            container_opts = self._container_opts(device)
 
             args = self._entrypoint() + [
                 "--input-dir",
@@ -355,7 +375,48 @@ class EnigmaSCRunner(ContainerRunner):
                 case_id,
             ]
 
-            return self.run(binds, args, container_opts=container_opts)
+            ret = self.run(binds, args, container_opts=container_opts)
+
+            # In Docker, output files created by container root are owned by root on POSIX hosts.
+            # Reclaim ownership to the host user so files can be managed/deleted without sudo.
+            if ret == 0 and self.mode == ExecutionMode.DOCKER:
+                get_uid = getattr(os, "getuid", None)
+                get_gid = getattr(os, "getgid", None)
+                if callable(get_uid) and callable(get_gid):
+                    try:
+                        chown_res = subprocess.run(
+                            [
+                                "docker",
+                                "run",
+                                "--rm",
+                                "--user",
+                                "0:0",
+                                "-v",
+                                f"{case_out.resolve()}:/output_data",
+                                "--entrypoint",
+                                "chown",
+                                self.image,
+                                "-R",
+                                f"{get_uid()}:{get_gid()}",
+                                "/output_data",
+                            ],
+                            check=False,
+                            capture_output=True,
+                            text=True,
+                        )
+                        if chown_res.returncode != 0:
+                            err = (
+                                chown_res.stderr or ""
+                            ).strip() or f"exit code {chown_res.returncode}"
+                            print_warning(
+                                f"Could not adjust output permissions for case {case_id}: {err}"
+                            )
+                    except (subprocess.SubprocessError, OSError) as exc:
+                        print_warning(
+                            f"Could not adjust output permissions for case {case_id}: {exc}"
+                        )
+
+            return ret
 
         finally:
             # Clean up ephemeral staging directory

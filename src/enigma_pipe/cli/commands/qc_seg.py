@@ -29,7 +29,11 @@ from enigma_pipe.services.qc_segmentation import write_segmentation_qc_csv
 SEG_FILES = {
     SegmentationType.ASEG: ["mri/aparc.DKTatlas+aseg.deep.mgz"],
     SegmentationType.BRAINSTEM: ["mri/brainstemSsLabels*.mgz", "mri/brainstem*.mgz"],
-    SegmentationType.CEREBNET: ["mri/cerebellum.CerebNet*.nii.gz", "mri/cerebellum.CerebNet*.mgz", "mri/cerebnet*.mgz"],
+    SegmentationType.CEREBNET: [
+        "mri/cerebellum.CerebNet*.nii.gz",
+        "mri/cerebellum.CerebNet*.mgz",
+        "mri/cerebnet*.mgz",
+    ],
     SegmentationType.ENIGMA_SC: ["mri/enigma-sc.mgz"],
 }
 
@@ -129,7 +133,7 @@ def qc_seg_main(
         fastsurfer_version = ""
         stats_dir = case_root / "stats"
         version_files = list(stats_dir.glob("*.stats")) if stats_dir.exists() else []
-        
+
         for log_file in version_files:
             try:
                 content = log_file.read_text(errors="replace")
