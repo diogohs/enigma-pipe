@@ -104,6 +104,8 @@ def test_build_case_command_docker(mock_runtime_available, tmp_path):
 
     assert "docker" in cmd
     assert "run" in cmd
+    assert "--user" in cmd
+    assert "0:0" in cmd
     assert "--input-dir" in cmd
     assert "--output-dir" in cmd
     assert "--subject" in cmd
@@ -125,6 +127,8 @@ def test_build_case_command_docker_gpu(mock_runtime_available, tmp_path):
         device="gpu",
     )
 
+    assert "--user" in cmd
+    assert "0:0" in cmd
     assert "--gpus" in cmd
     assert "all" in cmd
 
@@ -147,6 +151,7 @@ def test_build_case_command_singularity_gpu(mock_runtime_available, tmp_path):
 
     assert runner.mode.value in cmd[0]
     assert "exec" in cmd
+    assert "--writable-tmpfs" in cmd
     assert "--nv" in cmd
     assert "python3" in cmd
     assert "/enigma_pipeline.py" in cmd
@@ -170,6 +175,7 @@ def test_build_case_command_apptainer_gpu(mock_runtime_available, tmp_path):
 
     assert runner.mode.value in cmd[0]
     assert "exec" in cmd
+    assert "--writable-tmpfs" in cmd
     assert "--nv" in cmd
     assert "python3" in cmd
     assert "/enigma_pipeline.py" in cmd

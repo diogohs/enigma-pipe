@@ -283,6 +283,26 @@ class EnigmaSCRunner(ContainerRunner):
             return []
         return list(ENIGMA_SC_ENTRYPOINT)
 
+    def _container_opts(self, device: str = "cpu") -> list[str]:
+        """
+        Build container engine options for ENIGMA-SC.
+        - Docker: run as root (--user 0:0) because the container internally writes scratch files
+          to root-owned directories (/home/SCT, /home/datav2).
+        - Singularity/Apptainer: use --writable-tmpfs so the read-only SIF filesystem allows
+          scratch writes to /home/SCT.
+        - GPU: pass --gpus all (Docker) or --nv (Singularity/Apptainer).
+        """
+        opts: list[str] = []
+        if self.mode == ExecutionMode.DOCKER:
+            opts.extend(["--user", "0:0"])
+            if device.lower() in ("gpu", "cuda"):
+                opts.extend(["--gpus", "all"])
+        elif self.mode in (ExecutionMode.SINGULARITY, ExecutionMode.APPTAINER):
+            opts.append("--writable-tmpfs")
+            if device.lower() in ("gpu", "cuda"):
+                opts.append("--nv")
+        return opts
+
     def build_case_command(
         self,
         case_id: str,
@@ -298,12 +318,7 @@ class EnigmaSCRunner(ContainerRunner):
             (case_out.resolve(), Path("/output_data")),
         ]
 
-        container_opts: list[str] = []
-        if device.lower() in ("gpu", "cuda"):
-            if self.mode == ExecutionMode.DOCKER:
-                container_opts.extend(["--gpus", "all"])
-            elif self.mode in (ExecutionMode.SINGULARITY, ExecutionMode.APPTAINER):
-                container_opts.append("--nv")
+        container_opts = self._container_opts(device)
 
         args = self._entrypoint() + [
             "--input-dir",
@@ -349,12 +364,7 @@ class EnigmaSCRunner(ContainerRunner):
                 (case_out.resolve(), Path("/output_data")),
             ]
 
-            container_opts: list[str] = []
-            if device.lower() in ("gpu", "cuda"):
-                if self.mode == ExecutionMode.DOCKER:
-                    container_opts.extend(["--gpus", "all"])
-                elif self.mode in (ExecutionMode.SINGULARITY, ExecutionMode.APPTAINER):
-                    container_opts.append("--nv")
+            container_opts = self._container_opts(device)
 
             args = self._entrypoint() + [
                 "--input-dir",
@@ -365,7 +375,38 @@ class EnigmaSCRunner(ContainerRunner):
                 case_id,
             ]
 
-            return self.run(binds, args, container_opts=container_opts)
+            ret = self.run(binds, args, container_opts=container_opts)
+
+            # In Docker, output files created by container root are owned by root on POSIX hosts.
+            # Reclaim ownership to the host user so files can be managed/deleted without sudo.
+            if ret == 0 and self.mode == ExecutionMode.DOCKER:
+                get_uid = getattr(os, "getuid", None)
+                get_gid = getattr(os, "getgid", None)
+                if callable(get_uid) and callable(get_gid):
+                    try:
+                        subprocess.run(
+                            [
+                                "docker",
+                                "run",
+                                "--rm",
+                                "-v",
+                                f"{case_out.resolve()}:/output_data",
+                                "--entrypoint",
+                                "chown",
+                                self.image,
+                                "-R",
+                                f"{get_uid()}:{get_gid()}",
+                                "/output_data",
+                            ],
+                            check=False,
+                            capture_output=True,
+                        )
+                    except (subprocess.SubprocessError, OSError) as exc:
+                        print_warning(
+                            f"Could not adjust output permissions for case {case_id}: {exc}"
+                        )
+
+            return ret
 
         finally:
             # Clean up ephemeral staging directory
