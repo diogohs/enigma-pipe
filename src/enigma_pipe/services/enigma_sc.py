@@ -384,11 +384,13 @@ class EnigmaSCRunner(ContainerRunner):
                 get_gid = getattr(os, "getgid", None)
                 if callable(get_uid) and callable(get_gid):
                     try:
-                        subprocess.run(
+                        chown_res = subprocess.run(
                             [
                                 "docker",
                                 "run",
                                 "--rm",
+                                "--user",
+                                "0:0",
                                 "-v",
                                 f"{case_out.resolve()}:/output_data",
                                 "--entrypoint",
@@ -400,7 +402,15 @@ class EnigmaSCRunner(ContainerRunner):
                             ],
                             check=False,
                             capture_output=True,
+                            text=True,
                         )
+                        if chown_res.returncode != 0:
+                            err = (
+                                chown_res.stderr or ""
+                            ).strip() or f"exit code {chown_res.returncode}"
+                            print_warning(
+                                f"Could not adjust output permissions for case {case_id}: {err}"
+                            )
                     except (subprocess.SubprocessError, OSError) as exc:
                         print_warning(
                             f"Could not adjust output permissions for case {case_id}: {exc}"
