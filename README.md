@@ -40,16 +40,45 @@ A command-line interface for running containerized neuroimaging pipelines. It wr
 
 ## Installation
 
-Clone the repository:
+### Option A: Using uv (recommended)
+
+#### Standalone CLI Tool Installation
+
+Install `enigma-pipe` directly as an isolated tool:
+
+```bash
+uv tool install enigma-pipe
+```
+
+Make sure uv's tool bin directory is on your `PATH`:
+
+```bash
+uv tool update-shell
+```
+
+Restart your shell, or reload your environment:
+
+```bash
+source ~/.bashrc
+```
+
+Verify installation:
+
+```bash
+enigma-pipe --help
+```
+
+To upgrade in the future:
+
+```bash
+uv tool upgrade enigma-pipe
+```
+
+#### From Cloned Repository
 
 ```bash
 git clone https://github.com/diogohs/enigma-pipe.git
 cd enigma-pipe
-```
-
-### Option A: Using uv (recommended)
-
-```bash
 uv sync
 ```
 
@@ -61,7 +90,17 @@ uv sync --group dev
 
 ### Option B: Using pip
 
+Install via pip:
+
 ```bash
+pip install enigma-pipe
+```
+
+Or install from cloned source in editable mode:
+
+```bash
+git clone https://github.com/diogohs/enigma-pipe.git
+cd enigma-pipe
 pip install -e .
 ```
 
@@ -69,6 +108,32 @@ To include development dependencies:
 
 ```bash
 pip install -e ".[dev]"
+```
+
+#### Troubleshooting Pip Virtualenv Error
+
+If you get the following error when trying to install using `pip`:
+
+```
+ERROR: Could not find an activated virtualenv (required).
+```
+
+Check if `PIP_REQUIRE_VIRTUALENV` is active in your environment:
+
+```bash
+echo $PIP_REQUIRE_VIRTUALENV
+```
+
+If it returns `true`, try running the installation with:
+
+```bash
+PIP_REQUIRE_VIRTUALENV=false python -m pip install enigma-pipe
+```
+
+or for editable source installation:
+
+```bash
+PIP_REQUIRE_VIRTUALENV=false python -m pip install -e .
 ```
 
 ### Verify
@@ -97,6 +162,26 @@ Images used:
 |---|---|
 | `fastsurfer` | `deepmi/fastsurfer:latest` |
 | `mriqc` | `nipreps/mriqc:latest` |
+
+#### Docker Permissions Issue
+
+Be aware of Docker permissions issues if you encounter an error such as:
+
+```
+permission denied while trying to connect to the Docker API at unix:///var/run/docker.sock
+```
+
+Fix it by adding your user to the `docker` group (if you have `sudo` access; if not, ask the system administrator or someone in the sudoers list):
+
+```bash
+sudo usermod -aG docker $USER
+```
+
+Then log out and log back in, or run:
+
+```bash
+newgrp docker
+```
 
 ### Option B: Singularity / Apptainer
 
