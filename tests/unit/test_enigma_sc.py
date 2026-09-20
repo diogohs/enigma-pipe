@@ -332,6 +332,68 @@ def test_runner_run_case_replace_output_clears_existing_case(mock_runtime_availa
         assert ret == 0
 
 
+def test_runner_run_case_chown_cleanup_invoked_as_root(mock_runtime_available, tmp_path, monkeypatch):
+    runner = EnigmaSCRunner(mode=ExecutionMode.DOCKER)
+    input_file = tmp_path / "patient_01.nii.gz"
+    input_file.write_text("fake nifti")
+    output_dir = tmp_path / "output"
+
+    monkeypatch.setattr("os.getuid", lambda: 1000, raising=False)
+    monkeypatch.setattr("os.getgid", lambda: 1000, raising=False)
+
+    captured_cmds: list[list[str]] = []
+
+    def fake_subprocess_run(cmd, *args, **kwargs):
+        captured_cmds.append(cmd)
+        mock = MagicMock()
+        mock.returncode = 0
+        mock.stderr = ""
+        return mock
+
+    with (
+        patch.object(runner, "run", return_value=0),
+        patch("subprocess.run", side_effect=fake_subprocess_run),
+    ):
+        ret = runner.run_case("patient_01", input_file, output_dir, device="cpu")
+        assert ret == 0
+
+        # Find the chown command
+        chown_calls = [c for c in captured_cmds if "chown" in c]
+        assert len(chown_calls) == 1
+        chown_cmd = chown_calls[0]
+        assert "--user" in chown_cmd
+        user_idx = chown_cmd.index("--user")
+        assert chown_cmd[user_idx + 1] == "0:0"
+        assert "1000:1000" in chown_cmd
+
+
+def test_runner_run_case_chown_cleanup_failure_surfaces_warning(tmp_path, monkeypatch):
+    runner = EnigmaSCRunner(mode=ExecutionMode.DOCKER)
+    input_file = tmp_path / "patient_01.nii.gz"
+    input_file.write_text("fake nifti")
+    output_dir = tmp_path / "output"
+
+    monkeypatch.setattr("os.getuid", lambda: 1000, raising=False)
+    monkeypatch.setattr("os.getgid", lambda: 1000, raising=False)
+
+    def fake_subprocess_run(cmd, *args, **kwargs):
+        mock = MagicMock()
+        mock.returncode = 1
+        mock.stderr = "chown: changing ownership: Operation not permitted\n"
+        return mock
+
+    with (
+        patch.object(runner, "run", return_value=0),
+        patch("subprocess.run", side_effect=fake_subprocess_run),
+        patch("enigma_pipe.services.enigma_sc.print_warning") as mock_warn,
+    ):
+        ret = runner.run_case("patient_01", input_file, output_dir, device="cpu")
+        assert ret == 0
+        assert mock_warn.called
+        assert "Could not adjust output permissions" in mock_warn.call_args[0][0]
+        assert "Operation not permitted" in mock_warn.call_args[0][0]
+
+
 def test_is_bids_dataset(tmp_path):
     empty_dir = tmp_path / "empty"
     empty_dir.mkdir()
