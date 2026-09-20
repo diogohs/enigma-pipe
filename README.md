@@ -14,6 +14,7 @@ A command-line interface for running containerized neuroimaging pipelines. It wr
   - [fastsurfer](#fastsurfer)
   - [brainstem](#brainstem)
   - [mriqc](#mriqc)
+  - [enigma-sc](#enigma-sc)
   - [qc-img](#qc-img)
   - [qc-seg](#qc-seg)
   - [slicer](#slicer)
@@ -33,23 +34,52 @@ A command-line interface for running containerized neuroimaging pipelines. It wr
 | Dependency | Required By | Notes |
 |---|---|---|
 | Python >= 3.10 | All | Runtime environment. |
-| Docker **or** Singularity/Apptainer | `fastsurfer`, `mriqc` | At least one container runtime must be available on `PATH`. See [Container Images](#container-images) below. |
+| Docker **or** Singularity/Apptainer | `fastsurfer`, `mriqc`, `enigma-sc` | At least one container runtime must be available on `PATH`. See [Container Images](#container-images) below. |
 | FreeSurfer (>= 7.3) | `fastsurfer`, `brainstem` | `segment_subregions` must be on `PATH`. A valid FreeSurfer license file is required. |
 | ITK-SNAP | `qc-img`, `qc-seg` | Must be on `PATH` or specified via settings. |
 | ANTsPy | `slicer` | Installed automatically as a Python dependency (`antspyx`). |
 
 ## Installation
 
-Clone the repository:
+### Option A: Using uv (recommended)
+
+#### Standalone CLI Tool Installation
+
+Install `enigma-pipe` directly as an isolated tool:
+
+```bash
+uv tool install enigma-pipe
+```
+
+Make sure uv's tool bin directory is on your `PATH`:
+
+```bash
+uv tool update-shell
+```
+
+Restart your shell, or reload your environment:
+
+```bash
+source ~/.bashrc
+```
+
+Verify installation:
+
+```bash
+enigma-pipe --help
+```
+
+To upgrade in the future:
+
+```bash
+uv tool upgrade enigma-pipe
+```
+
+#### From Cloned Repository
 
 ```bash
 git clone https://github.com/diogohs/enigma-pipe.git
 cd enigma-pipe
-```
-
-### Option A: Using uv (recommended)
-
-```bash
 uv sync
 ```
 
@@ -61,7 +91,17 @@ uv sync --group dev
 
 ### Option B: Using pip
 
+Install via pip:
+
 ```bash
+pip install enigma-pipe
+```
+
+Or install from cloned source in editable mode:
+
+```bash
+git clone https://github.com/diogohs/enigma-pipe.git
+cd enigma-pipe
 pip install -e .
 ```
 
@@ -69,6 +109,32 @@ To include development dependencies:
 
 ```bash
 pip install -e ".[dev]"
+```
+
+#### Troubleshooting Pip Virtualenv Error
+
+If you get the following error when trying to install using `pip`:
+
+```
+ERROR: Could not find an activated virtualenv (required).
+```
+
+Check if `PIP_REQUIRE_VIRTUALENV` is active in your environment:
+
+```bash
+echo $PIP_REQUIRE_VIRTUALENV
+```
+
+If it returns `true`, try running the installation with:
+
+```bash
+PIP_REQUIRE_VIRTUALENV=false python -m pip install enigma-pipe
+```
+
+or for editable source installation:
+
+```bash
+PIP_REQUIRE_VIRTUALENV=false python -m pip install -e .
 ```
 
 ### Verify
@@ -97,6 +163,27 @@ Images used:
 |---|---|
 | `fastsurfer` | `deepmi/fastsurfer:latest` |
 | `mriqc` | `nipreps/mriqc:latest` |
+| `enigma-sc` | `pipeline-enigma-cli:latest` |
+
+#### Docker Permissions Issue
+
+Be aware of Docker permissions issues if you encounter an error such as:
+
+```
+permission denied while trying to connect to the Docker API at unix:///var/run/docker.sock
+```
+
+Fix it by adding your user to the `docker` group (if you have `sudo` access; if not, ask the system administrator or someone in the sudoers list):
+
+```bash
+sudo usermod -aG docker $USER
+```
+
+Then log out and log back in, or run:
+
+```bash
+newgrp docker
+```
 
 ### Option B: Singularity / Apptainer
 
@@ -115,6 +202,11 @@ singularity build \
 singularity build \
     "$HOME/enigma-pipe/images/mriqc.sif" \
     docker://nipreps/mriqc:latest
+
+# Build ENIGMA-SC
+singularity build \
+    "$HOME/enigma-pipe/images/pipeline-enigma-cli.sif" \
+    docker://pipeline-enigma-cli:latest
 ```
 
 > **Note:** Replace `singularity` with `apptainer` if that is the command on your system. The flags and arguments are identical.
@@ -156,6 +248,12 @@ Run automated image quality assessment on a BIDS dataset:
 
 ```bash
 enigma-pipe mriqc /data/bids /data/mriqc_output
+```
+
+Run automated spinal cord analysis on loose NIfTI scans or a BIDS dataset:
+
+```bash
+enigma-pipe enigma-sc /data/raw /data/sc_output
 ```
 
 Generate slice captures from existing FastSurfer output:
@@ -232,6 +330,27 @@ enigma-pipe mriqc INPUT_DIR OUTPUT_DIR [WORK_DIR] [OPTIONS]
 | `--image-sif` | path | `~/enigma-pipe/images/mriqc.sif` | Path to a custom Apptainer/Singularity `.sif` file. Overrides `ENIGMA_PIPE_MRIQC_IMAGE`. |
 | `--participant-label` | list | None | Restrict processing to specific participant labels. |
 | `--nprocs` | integer | None | Number of processors to use. |
+
+---
+
+### enigma-sc
+
+Runs the ENIGMA Spinal Cord pipeline (`pipeline-enigma-cli`) via a container runtime on loose NIfTI scans or BIDS datasets. Segments the spinal cord, performs vertebral labeling, calculates cross-sectional area (CSA) and eccentricity metrics per case, and produces group-level summary tables (`csa_group_summary.csv` and `eccentricity_group_summary.csv`).
+
+```bash
+enigma-pipe enigma-sc INPUT_DIR OUTPUT_DIR [OPTIONS]
+```
+
+| Argument / Option | Type | Default | Description |
+|---|---|---|---|
+| `INPUT_DIR` | path (required) | -- | Directory containing loose NIfTI scans or BIDS dataset. |
+| `OUTPUT_DIR` | path (required) | -- | Output directory for subject outputs, manifests, and group metrics. |
+| `--execution-mode` | string | `docker` | Container runtime: `docker`, `singularity`, or `apptainer`. |
+| `--device` | string | `cpu` | Compute device: `cpu`, `gpu`, or `cuda`. Sets `--gpus all` (Docker) or `--nv` (Singularity). |
+| `--image-sif` | path | `~/enigma-pipe/images/pipeline-enigma-cli.sif` | Path to custom Apptainer/Singularity `.sif` file. Overrides `ENIGMA_PIPE_ENIGMA_SC_IMAGE`. |
+| `--image-docker` | string | `pipeline-enigma-cli:latest` | Docker image name or tag. |
+| `--processing-mode` | string | `all` | Case selection: `all` or `continue`. |
+| `--existing-output` | string | `error` | Policy when output exists: `error`, `skip`, `replace`, or `resume`. |
 
 ---
 

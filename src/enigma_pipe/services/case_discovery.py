@@ -80,7 +80,10 @@ def discover_cases(
                     skipped_count += 1
                     continue
 
-                if is_completed and existing_output == ExistingOutputPolicy.SKIP:
+                if is_completed and existing_output in (
+                    ExistingOutputPolicy.SKIP,
+                    ExistingOutputPolicy.RESUME,
+                ):
                     skipped_count += 1
                     continue
 
