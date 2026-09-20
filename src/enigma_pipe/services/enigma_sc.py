@@ -198,7 +198,7 @@ def stage_case_input(
     target_filename: str,
 ) -> Path:
     """
-    Stage an input NIfTI file into target_dir using symlink or hardlink,
+    Stage an input NIfTI file into target_dir using hardlink when possible,
     falling back to file copy if linking fails.
     Returns the Path to the staged file.
     """
@@ -209,12 +209,9 @@ def stage_case_input(
 
     resolved_source = source_path.resolve()
     try:
-        staged_path.symlink_to(resolved_source)
-    except (OSError, NotImplementedError):
-        try:
-            os.link(resolved_source, staged_path)
-        except OSError:
-            shutil.copy2(resolved_source, staged_path)
+        os.link(resolved_source, staged_path)
+    except OSError:
+        shutil.copy2(resolved_source, staged_path)
 
     return staged_path
 
@@ -318,6 +315,7 @@ class EnigmaSCRunner(ContainerRunner):
         input_nifti_path: Path,
         output_dir: Path,
         device: str = "cpu",
+        replace_output: bool = False,
     ) -> int:
         """
         Run ENIGMA-SC on a single case.
@@ -325,6 +323,8 @@ class EnigmaSCRunner(ContainerRunner):
         points container output to <output_dir>/<case_id>, and invokes the container.
         """
         case_out = output_dir / case_id
+        if replace_output and case_out.exists():
+            shutil.rmtree(case_out)
         case_out.mkdir(parents=True, exist_ok=True)
 
         # Create ephemeral staging input dir for this case to isolate inputs
@@ -332,7 +332,10 @@ class EnigmaSCRunner(ContainerRunner):
         staging_dir.mkdir(parents=True, exist_ok=True)
 
         try:
-            stage_case_input(input_nifti_path, staging_dir, f"{case_id}.nii.gz")
+            staged_filename = f"{case_id}.nii.gz"
+            if input_nifti_path.name.endswith(".nii"):
+                staged_filename = f"{case_id}.nii"
+            stage_case_input(input_nifti_path, staging_dir, staged_filename)
 
             binds = [
                 (staging_dir.resolve(), Path("/input_data")),
