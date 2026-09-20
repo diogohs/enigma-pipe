@@ -8,7 +8,9 @@ from enigma_pipe.core.models import ExecutionMode, ExistingOutputPolicy, Process
 from enigma_pipe.services.case_discovery import discover_cases
 from enigma_pipe.services.enigma_sc import (
     DEFAULT_DOCKER_IMAGE,
+    DEFAULT_SIF_IMAGE,
     ENIGMA_SC_ENTRYPOINT,
+    LEGACY_SIF_IMAGE,
     EnigmaSCRunner,
     check_gpu_availability,
     consolidate_group_tables,
@@ -28,15 +30,46 @@ def mock_runtime_available():
 
 
 def test_runner_docker_init_default(mock_runtime_available):
+    assert DEFAULT_DOCKER_IMAGE == "art2mri/pipeline_enigma_cli:1.0"
     runner = EnigmaSCRunner(mode=ExecutionMode.DOCKER)
     assert runner.mode == ExecutionMode.DOCKER
-    assert runner.image == DEFAULT_DOCKER_IMAGE
+    assert runner.image == "art2mri/pipeline_enigma_cli:1.0"
     assert runner._entrypoint() == []
 
 
 def test_runner_docker_init_custom_image(mock_runtime_available):
     runner = EnigmaSCRunner(mode=ExecutionMode.DOCKER, image_docker="my-custom-img:tag")
     assert runner.image == "my-custom-img:tag"
+
+
+def test_runner_singularity_default_sif_resolution(mock_runtime_available, tmp_path, monkeypatch):
+    assert DEFAULT_SIF_IMAGE.name == "pipeline_enigma_cli.sif"
+    assert LEGACY_SIF_IMAGE.name == "pipeline-enigma-cli.sif"
+
+    # Case 1: default SIF does not exist
+    monkeypatch.setattr(
+        "enigma_pipe.services.enigma_sc.DEFAULT_SIF_IMAGE",
+        tmp_path / "pipeline_enigma_cli.sif",
+    )
+    monkeypatch.setattr(
+        "enigma_pipe.services.enigma_sc.LEGACY_SIF_IMAGE",
+        tmp_path / "pipeline-enigma-cli.sif",
+    )
+    with pytest.raises(MissingDependencyError) as exc:
+        EnigmaSCRunner(mode=ExecutionMode.SINGULARITY)
+    assert "pipeline_enigma_cli.sif" in str(exc.value)
+
+    # Case 2: legacy SIF exists, default SIF does not -> falls back to legacy
+    legacy_sif = tmp_path / "pipeline-enigma-cli.sif"
+    legacy_sif.write_text("legacy")
+    runner_legacy = EnigmaSCRunner(mode=ExecutionMode.SINGULARITY)
+    assert runner_legacy.image == str(legacy_sif.resolve())
+
+    # Case 3: default SIF exists -> takes precedence
+    default_sif = tmp_path / "pipeline_enigma_cli.sif"
+    default_sif.write_text("default")
+    runner_default = EnigmaSCRunner(mode=ExecutionMode.SINGULARITY)
+    assert runner_default.image == str(default_sif.resolve())
 
 
 def test_runner_singularity_missing_sif(mock_runtime_available, tmp_path):

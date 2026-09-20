@@ -15,8 +15,9 @@ from enigma_pipe.services.case_identifier import derive_case_id
 from enigma_pipe.services.container import ContainerRunner
 
 # Default container images
-DEFAULT_DOCKER_IMAGE = "pipeline-enigma-cli:latest"
-DEFAULT_SIF_IMAGE = Path.home() / "enigma-pipe" / "images" / "pipeline-enigma-cli.sif"
+DEFAULT_DOCKER_IMAGE = "art2mri/pipeline_enigma_cli:1.0"
+DEFAULT_SIF_IMAGE = Path.home() / "enigma-pipe" / "images" / "pipeline_enigma_cli.sif"
+LEGACY_SIF_IMAGE = Path.home() / "enigma-pipe" / "images" / "pipeline-enigma-cli.sif"
 ENIGMA_SC_ENTRYPOINT = ["python3", "/enigma_pipeline.py"]
 
 
@@ -257,9 +258,15 @@ class EnigmaSCRunner(ContainerRunner):
                 or DEFAULT_DOCKER_IMAGE
             )
         else:
-            configured_image = (
-                image_sif or os.environ.get("ENIGMA_PIPE_ENIGMA_SC_IMAGE") or str(DEFAULT_SIF_IMAGE)
-            )
+            if image_sif or os.environ.get("ENIGMA_PIPE_ENIGMA_SC_IMAGE"):
+                configured_image = image_sif or os.environ.get("ENIGMA_PIPE_ENIGMA_SC_IMAGE") or ""
+            else:
+                default_sif = (
+                    DEFAULT_SIF_IMAGE
+                    if DEFAULT_SIF_IMAGE.is_file() or not LEGACY_SIF_IMAGE.is_file()
+                    else LEGACY_SIF_IMAGE
+                )
+                configured_image = str(default_sif)
             configured_image = os.path.expandvars(os.path.expanduser(configured_image))
 
             if "://" not in configured_image:

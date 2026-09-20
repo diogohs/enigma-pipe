@@ -163,7 +163,7 @@ Images used:
 |---|---|
 | `fastsurfer` | `deepmi/fastsurfer:latest` |
 | `mriqc` | `nipreps/mriqc:latest` |
-| `enigma-sc` | `pipeline-enigma-cli:latest` |
+| `enigma-sc` | `art2mri/pipeline_enigma_cli:1.0` |
 
 #### Docker Permissions Issue
 
@@ -205,13 +205,13 @@ singularity build \
 
 # Build ENIGMA-SC
 singularity build \
-    "$HOME/enigma-pipe/images/pipeline-enigma-cli.sif" \
-    docker://pipeline-enigma-cli:latest
+    "$HOME/enigma-pipe/images/pipeline_enigma_cli.sif" \
+    docker://art2mri/pipeline_enigma_cli:1.0
 ```
 
 > **Note:** Replace `singularity` with `apptainer` if that is the command on your system. The flags and arguments are identical.
 
-Verify that both images were created successfully:
+Verify that the images were created successfully:
 
 ```bash
 ls -lh "$HOME/enigma-pipe/images/"*.sif
@@ -222,6 +222,7 @@ Expected output (sizes will vary):
 ```
 -rw-r--r-- 1 user group 12G ... fastsurfer.sif
 -rw-r--r-- 1 user group  8G ... mriqc.sif
+-rw-r--r-- 1 user group  5G ... pipeline_enigma_cli.sif
 ```
 
 By default, `enigma-pipe` looks for images at `~/enigma-pipe/images/fastsurfer.sif` and `~/enigma-pipe/images/mriqc.sif`. If you saved them elsewhere, use the `--image-sif` option or the environment variables described in [Configuration](#configuration).
@@ -347,8 +348,8 @@ enigma-pipe enigma-sc INPUT_DIR OUTPUT_DIR [OPTIONS]
 | `OUTPUT_DIR` | path (required) | -- | Output directory for subject outputs, manifests, and group metrics. |
 | `--execution-mode` | string | `docker` | Container runtime: `docker`, `singularity`, or `apptainer`. |
 | `--device` | string | `cpu` | Compute device: `cpu`, `gpu`, or `cuda`. Sets `--gpus all` (Docker) or `--nv` (Singularity). |
-| `--image-sif` | path | `~/enigma-pipe/images/pipeline-enigma-cli.sif` | Path to custom Apptainer/Singularity `.sif` file. Overrides `ENIGMA_PIPE_ENIGMA_SC_IMAGE`. |
-| `--image-docker` | string | `pipeline-enigma-cli:latest` | Docker image name or tag. |
+| `--image-sif` | path | `~/enigma-pipe/images/pipeline_enigma_cli.sif` | Path to custom Apptainer/Singularity `.sif` file. Overrides `ENIGMA_PIPE_ENIGMA_SC_IMAGE`. |
+| `--image-docker` | string | `art2mri/pipeline_enigma_cli:1.0` | Docker image name or tag. |
 | `--processing-mode` | string | `all` | Case selection: `all` or `continue`. |
 | `--existing-output` | string | `error` | Policy when output exists: `error`, `skip`, `replace`, or `resume`. |
 

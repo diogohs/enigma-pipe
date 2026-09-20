@@ -27,9 +27,6 @@ def validate_fastsurfer_output(case_dir: Path) -> None:
         )
 
 
-
-
-
 class FreeSurferChecker:
     @staticmethod
     def check_availability() -> None:
@@ -76,7 +73,6 @@ class FreeSurferChecker:
                 sys.stderr.write(
                     f"WARNING: FreeSurfer version {version_str} detected. Minimum supported version is 7.3.\n"
                 )
-
 
 
 def compute_threads(threads_arg: int | str | None) -> int:
