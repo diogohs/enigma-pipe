@@ -171,6 +171,7 @@ def enigma_sc_main(
                 input_nifti_path=case.original_path,
                 output_dir=output_dir,
                 device=device,
+                replace_output=existing_output == ExistingOutputPolicy.REPLACE,
             )
 
             error_msg: str | None = None

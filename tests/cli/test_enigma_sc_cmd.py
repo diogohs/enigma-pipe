@@ -43,7 +43,9 @@ def test_enigma_sc_happy_path(tmp_path, mock_container_runtime, monkeypatch):
 
     output_dir = tmp_path / "output"
 
-    def fake_run_case(self, case_id, input_nifti_path, output_dir, device="cpu"):
+    def fake_run_case(
+        self, case_id, input_nifti_path, output_dir, device="cpu", replace_output=False
+    ):
         create_dummy_sc_outputs(output_dir, case_id)
         return 0
 
@@ -85,7 +87,9 @@ def test_enigma_sc_existing_output_skip_and_continue(tmp_path, mock_container_ru
 
     processed = []
 
-    def fake_run_case(self, case_id, input_nifti_path, output_dir, device="cpu"):
+    def fake_run_case(
+        self, case_id, input_nifti_path, output_dir, device="cpu", replace_output=False
+    ):
         processed.append(case_id)
         create_dummy_sc_outputs(output_dir, case_id)
         return 0
@@ -125,7 +129,9 @@ def test_enigma_sc_existing_output_error(tmp_path, mock_container_runtime, monke
     (input_dir / "patient_01.nii.gz").write_text("nii")
     output_dir = tmp_path / "output"
 
-    def fake_run_case(self, case_id, input_nifti_path, output_dir, device="cpu"):
+    def fake_run_case(
+        self, case_id, input_nifti_path, output_dir, device="cpu", replace_output=False
+    ):
         create_dummy_sc_outputs(output_dir, case_id)
         return 0
 
@@ -146,13 +152,45 @@ def test_enigma_sc_existing_output_error(tmp_path, mock_container_runtime, monke
     assert "already has completed output" in res2.output
 
 
+def test_enigma_sc_existing_output_replace_sets_replace_flag(
+    tmp_path, mock_container_runtime, monkeypatch
+):
+    input_dir = tmp_path / "input"
+    input_dir.mkdir()
+    (input_dir / "patient_01.nii.gz").write_text("nii")
+    output_dir = tmp_path / "output"
+
+    replace_flags = []
+
+    def fake_run_case(
+        self, case_id, input_nifti_path, output_dir, device="cpu", replace_output=False
+    ):
+        replace_flags.append(replace_output)
+        create_dummy_sc_outputs(output_dir, case_id)
+        return 0
+
+    monkeypatch.setattr(
+        "enigma_pipe.services.enigma_sc.EnigmaSCRunner.run_case",
+        fake_run_case,
+    )
+
+    res = runner.invoke(
+        app,
+        ["enigma-sc", "--existing-output", "replace", str(input_dir), str(output_dir)],
+    )
+    assert res.exit_code == 0
+    assert replace_flags == [True]
+
+
 def test_enigma_sc_case_failure(tmp_path, mock_container_runtime, monkeypatch):
     input_dir = tmp_path / "input"
     input_dir.mkdir()
     (input_dir / "patient_01.nii.gz").write_text("nii")
     output_dir = tmp_path / "output"
 
-    def fake_run_case(self, case_id, input_nifti_path, output_dir, device="cpu"):
+    def fake_run_case(
+        self, case_id, input_nifti_path, output_dir, device="cpu", replace_output=False
+    ):
         return 1
 
     monkeypatch.setattr(
@@ -174,7 +212,9 @@ def test_enigma_sc_missing_output_demoted_to_failed(tmp_path, mock_container_run
     (input_dir / "patient_01.nii.gz").write_text("nii")
     output_dir = tmp_path / "output"
 
-    def fake_run_case(self, case_id, input_nifti_path, output_dir, device="cpu"):
+    def fake_run_case(
+        self, case_id, input_nifti_path, output_dir, device="cpu", replace_output=False
+    ):
         # Returncode 0 but DO NOT create expected outputs
         return 0
 
@@ -198,7 +238,9 @@ def test_enigma_sc_keyboard_interrupt(tmp_path, mock_container_runtime, monkeypa
     (input_dir / "patient_01.nii.gz").write_text("nii")
     output_dir = tmp_path / "output"
 
-    def fake_run_case(self, case_id, input_nifti_path, output_dir, device="cpu"):
+    def fake_run_case(
+        self, case_id, input_nifti_path, output_dir, device="cpu", replace_output=False
+    ):
         raise KeyboardInterrupt()
 
     monkeypatch.setattr(
@@ -220,7 +262,9 @@ def test_enigma_sc_json_output(tmp_path, mock_container_runtime, monkeypatch):
     (input_dir / "patient_01.nii.gz").write_text("nii")
     output_dir = tmp_path / "output"
 
-    def fake_run_case(self, case_id, input_nifti_path, output_dir, device="cpu"):
+    def fake_run_case(
+        self, case_id, input_nifti_path, output_dir, device="cpu", replace_output=False
+    ):
         create_dummy_sc_outputs(output_dir, case_id)
         return 0
 
@@ -258,7 +302,9 @@ def test_enigma_sc_bids_dataset(tmp_path, mock_container_runtime, monkeypatch):
 
     processed = []
 
-    def fake_run_case(self, case_id, input_nifti_path, output_dir, device="cpu"):
+    def fake_run_case(
+        self, case_id, input_nifti_path, output_dir, device="cpu", replace_output=False
+    ):
         processed.append(case_id)
         create_dummy_sc_outputs(output_dir, case_id)
         return 0
@@ -385,7 +431,9 @@ def test_enigma_sc_singularity_valid_sif_gpu(tmp_path, mock_container_runtime, m
         lambda: True,
     )
 
-    def fake_run_case(self, case_id, input_nifti_path, output_dir, device="cpu"):
+    def fake_run_case(
+        self, case_id, input_nifti_path, output_dir, device="cpu", replace_output=False
+    ):
         create_dummy_sc_outputs(output_dir, case_id)
         return 0
 
