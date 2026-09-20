@@ -16,15 +16,31 @@ class GlobalState:
 state = GlobalState()
 
 
+def version_callback(value: bool) -> None:
+    if value:
+        import enigma_pipe
+
+        typer.echo(f"enigma-pipe {enigma_pipe.__version__}")
+        raise typer.Exit()
+
+
 @app.callback()
 def main(
+    version: bool | None = typer.Option(
+        None,
+        "--version",
+        "-V",
+        help="Show version and exit",
+        callback=version_callback,
+        is_eager=True,
+    ),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose output"),
     debug: bool = typer.Option(False, "--debug", "-d", help="Enable debug output"),
     json_output: bool = typer.Option(False, "--json", help="Output final summary in JSON format"),
     settings: Path | None = typer.Option(
         None, "--settings", "-s", help="Path to YAML settings file"
     ),
-):
+) -> None:
     state.verbose = verbose
     state.debug = debug
     state.json_output = json_output
@@ -34,6 +50,7 @@ def main(
 # Import commands to register them with the Typer app
 from enigma_pipe.cli.commands import (  # noqa: F401
     brainstem,
+    enigma_sc,
     fastsurfer,
     mriqc,
     qc_img,
@@ -43,4 +60,3 @@ from enigma_pipe.cli.commands import (  # noqa: F401
 
 if __name__ == "__main__":
     app()
-
