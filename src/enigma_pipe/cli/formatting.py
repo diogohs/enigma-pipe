@@ -6,10 +6,10 @@ from loguru import logger
 
 logger.remove()
 logger.add(
-    lambda msg: sys.stderr.write(msg), 
-    colorize=True, 
-    format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <level>{message}</level>", 
-    level="INFO"
+    lambda msg: sys.stderr.write(msg),
+    colorize=True,
+    format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <level>{message}</level>",
+    level="INFO",
 )
 
 
@@ -20,11 +20,7 @@ def setup_logging(output_dir: Path):
     timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
     log_file = logs_dir / f"enigma-pipe-{timestamp}.log"
 
-    logger.add(
-        log_file, 
-        format="{time:YYYY-MM-DD HH:mm:ss} - {level} - {message}", 
-        level="INFO"
-    )
+    logger.add(log_file, format="{time:YYYY-MM-DD HH:mm:ss} - {level} - {message}", level="INFO")
 
 
 def print_error(msg: str):

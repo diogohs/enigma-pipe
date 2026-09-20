@@ -25,15 +25,21 @@ def mriqc_main(
     input_dir: Path = typer.Argument(
         ..., help="Input dir in BIDS dataset format.", exists=True, file_okay=False, dir_okay=True
     ),
-    output_dir: Path = typer.Argument(..., help="Output directory.", file_okay=False, dir_okay=True),
+    output_dir: Path = typer.Argument(
+        ..., help="Output directory.", file_okay=False, dir_okay=True
+    ),
     work_dir: Path | None = typer.Argument(
         None, help="Work/scratch directory (optional).", file_okay=False, dir_okay=True
     ),
-    execution_mode: str = typer.Option("docker", "--execution-mode", help="docker, apptainer or singularity."),
+    execution_mode: str = typer.Option(
+        "docker", "--execution-mode", help="docker, apptainer or singularity."
+    ),
     participant_label: list[str] | None = typer.Option(
         None, "--participant-label", help="List of participants to run (optional)."
     ),
-    n_procs: int | None = typer.Option(None, "--nprocs", help="Number of processors to use (optional)."),
+    n_procs: int | None = typer.Option(
+        None, "--nprocs", help="Number of processors to use (optional)."
+    ),
     image_sif: str | None = typer.Option(
         None, "--image-sif", help="Path to a custom Apptainer/Singularity .sif container file"
     ),

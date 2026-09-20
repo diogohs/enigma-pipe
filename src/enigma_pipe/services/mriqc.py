@@ -13,7 +13,6 @@ from enigma_pipe.core.exceptions import MissingDependencyError
 from enigma_pipe.core.models import ExecutionMode
 from enigma_pipe.services.container import ContainerRunner
 
-
 _NIFTI_SUFFIXES = (".nii", ".nii.gz")
 _GENERATED_BIDS_MARKER = ".enigma_pipe_generated_bids"
 _EXCLUDED_DIRECTORY_NAMES = {
@@ -48,12 +47,8 @@ class MRIQCRunner(ContainerRunner):
         else:
             configured_image = image or os.environ.get("ENIGMA_PIPE_MRIQC_IMAGE")
             if configured_image is None:
-                configured_image = str(
-                    Path.home() / "enigma-pipe" / "images" / "mriqc.sif"
-                )
-            configured_image = os.path.expandvars(
-                os.path.expanduser(configured_image)
-            )
+                configured_image = str(Path.home() / "enigma-pipe" / "images" / "mriqc.sif")
+            configured_image = os.path.expandvars(os.path.expanduser(configured_image))
 
         # For Singularity/Apptainer, the default is a local SIF file. A URI
         # such as docker://... is also accepted when explicitly supplied.
@@ -154,10 +149,7 @@ class MRIQCRunner(ContainerRunner):
             relative_parts = path.relative_to(input_dir).parts[:-1]
             if any(part.startswith(".") for part in relative_parts):
                 continue
-            if any(
-                part.lower() in _EXCLUDED_DIRECTORY_NAMES
-                for part in relative_parts
-            ):
+            if any(part.lower() in _EXCLUDED_DIRECTORY_NAMES for part in relative_parts):
                 continue
 
             images.append(path.resolve())
@@ -174,10 +166,7 @@ class MRIQCRunner(ContainerRunner):
                 continue
             if not cls._strip_nifti_suffix(path.name).endswith("_T1w"):
                 continue
-            if not any(
-                part.startswith("sub-")
-                for part in path.relative_to(bids_dir).parts
-            ):
+            if not any(part.startswith("sub-") for part in path.relative_to(bids_dir).parts):
                 continue
             images.append(path.resolve())
 
@@ -186,9 +175,8 @@ class MRIQCRunner(ContainerRunner):
     @classmethod
     def _looks_like_bids_dataset(cls, input_dir: Path) -> bool:
         """Return True when a minimal structural BIDS dataset is present."""
-        return (
-            (input_dir / "dataset_description.json").is_file()
-            and bool(cls._find_bids_t1w_images(input_dir))
+        return (input_dir / "dataset_description.json").is_file() and bool(
+            cls._find_bids_t1w_images(input_dir)
         )
 
     @staticmethod
@@ -217,10 +205,7 @@ class MRIQCRunner(ContainerRunner):
         if work_dir is not None:
             return work_dir.resolve() / "enigma_pipe_mriqc_bids"
 
-        return (
-            output_dir.resolve().parent
-            / f".{output_dir.resolve().name}_enigma_pipe_mriqc_bids"
-        )
+        return output_dir.resolve().parent / f".{output_dir.resolve().name}_enigma_pipe_mriqc_bids"
 
     @classmethod
     def _reset_generated_bids_directory(cls, staging_dir: Path) -> None:
@@ -229,8 +214,7 @@ class MRIQCRunner(ContainerRunner):
             marker = staging_dir / _GENERATED_BIDS_MARKER
             if not marker.is_file():
                 raise RuntimeError(
-                    "Refusing to replace a non-generated directory: "
-                    f"{staging_dir}"
+                    "Refusing to replace a non-generated directory: " f"{staging_dir}"
                 )
             shutil.rmtree(staging_dir)
 
@@ -263,8 +247,7 @@ class MRIQCRunner(ContainerRunner):
         images = cls._discover_nifti_images(input_dir)
         if not images:
             raise FileNotFoundError(
-                "No .nii or .nii.gz images were found under "
-                f"{input_dir.resolve()}."
+                "No .nii or .nii.gz images were found under " f"{input_dir.resolve()}."
             )
 
         staging_dir = cls._staging_directory(output_dir, work_dir)
@@ -292,9 +275,7 @@ class MRIQCRunner(ContainerRunner):
             label = base_label
 
             if label in used_labels:
-                digest = hashlib.sha1(
-                    str(relative_path).encode("utf-8")
-                ).hexdigest()[:8]
+                digest = hashlib.sha1(str(relative_path).encode("utf-8")).hexdigest()[:8]
                 label = f"{base_label}{digest}"
 
             # Guard against the extremely unlikely event of a repeated digest.
@@ -305,11 +286,7 @@ class MRIQCRunner(ContainerRunner):
 
             used_labels.add(label)
 
-            extension = (
-                ".nii.gz"
-                if image.name.lower().endswith(".nii.gz")
-                else ".nii"
-            )
+            extension = ".nii.gz" if image.name.lower().endswith(".nii.gz") else ".nii"
             anat_dir = staging_dir / f"sub-{label}" / "anat"
             destination = anat_dir / f"sub-{label}_T1w{extension}"
 
@@ -321,9 +298,7 @@ class MRIQCRunner(ContainerRunner):
 
             source_json = cls._source_json_sidecar(image)
             if source_json.is_file():
-                destination_json = (
-                    anat_dir / f"sub-{label}_T1w.json"
-                )
+                destination_json = anat_dir / f"sub-{label}_T1w.json"
                 shutil.copy2(source_json, destination_json)
 
             participant_rows.append([f"sub-{label}"])
@@ -359,13 +334,9 @@ class MRIQCRunner(ContainerRunner):
         (staging_dir / "README").write_text(readme, encoding="utf-8")
 
         print_info(
-            "Prepared temporary BIDS dataset with "
-            f"{len(images)} T1w image(s): {staging_dir}"
+            "Prepared temporary BIDS dataset with " f"{len(images)} T1w image(s): {staging_dir}"
         )
-        print_info(
-            f"BIDS staging used {hardlinked} hard link(s) and "
-            f"{copied} copied file(s)."
-        )
+        print_info(f"BIDS staging used {hardlinked} hard link(s) and " f"{copied} copied file(s).")
 
         return staging_dir, aliases
 
@@ -442,10 +413,7 @@ class MRIQCRunner(ContainerRunner):
 
         if self._looks_like_bids_dataset(input_dir):
             effective_bids_dir = input_dir
-            print_info(
-                "Existing BIDS dataset detected; automatic conversion "
-                "is not required."
-            )
+            print_info("Existing BIDS dataset detected; automatic conversion " "is not required.")
         else:
             print_info(
                 "Input is not a complete BIDS dataset. Preparing a "
@@ -487,9 +455,7 @@ class MRIQCRunner(ContainerRunner):
             args.extend(["-w", "/work"])
 
         if selected_participants:
-            args.extend(
-                ["--participant-label", *selected_participants]
-            )
+            args.extend(["--participant-label", *selected_participants])
 
         if n_procs:
             args.extend(["--nprocs", str(n_procs)])

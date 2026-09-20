@@ -112,20 +112,26 @@ def test_compute_threads_max_with_affinity():
 
 def test_compute_threads_max_without_affinity():
     # Simulate os without sched_getaffinity (like Windows/macOS)
-    with patch("os.cpu_count", return_value=12), patch(
-        "builtins.hasattr",
-        side_effect=lambda obj, name: (
-            False if name == "sched_getaffinity" else hasattr(obj, name)
+    with (
+        patch("os.cpu_count", return_value=12),
+        patch(
+            "builtins.hasattr",
+            side_effect=lambda obj, name: (
+                False if name == "sched_getaffinity" else hasattr(obj, name)
+            ),
         ),
     ):
         assert compute_threads("max") == 6
 
 
 def test_compute_threads_max_fallback_minimum():
-    with patch("os.cpu_count", return_value=1), patch(
-        "builtins.hasattr",
-        side_effect=lambda obj, name: (
-            False if name == "sched_getaffinity" else hasattr(obj, name)
+    with (
+        patch("os.cpu_count", return_value=1),
+        patch(
+            "builtins.hasattr",
+            side_effect=lambda obj, name: (
+                False if name == "sched_getaffinity" else hasattr(obj, name)
+            ),
         ),
     ):
         assert compute_threads("max") == 1

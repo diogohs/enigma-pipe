@@ -35,24 +35,36 @@ def fastsurfer_main(
     output_dir: Path = typer.Argument(..., help="Output directory", file_okay=False, dir_okay=True),
     fs_license: Path | None = typer.Option(None, "--fs-license", help="Path to FreeSurfer license"),
     execution_mode: str = typer.Option(
-        "docker", "--execution-mode", help="Container runtime to use (docker, singularity, or apptainer)"
+        "docker",
+        "--execution-mode",
+        help="Container runtime to use (docker, singularity, or apptainer)",
     ),
     processing_mode: ProcessingMode = typer.Option(
-        ProcessingMode.ALL, "--processing-mode", help="Case selection mode ('all' for entire directory, 'continue' to resume incomplete runs, 'file' for explicit lists)"
+        ProcessingMode.ALL,
+        "--processing-mode",
+        help="Case selection mode ('all' for entire directory, 'continue' to resume incomplete runs, 'file' for explicit lists)",
     ),
     existing_output: ExistingOutputPolicy = typer.Option(
-        ExistingOutputPolicy.ERROR, "--existing-output", help="Action when output exists: 'error' (abort), 'skip' (ignore), 'resume' (continue partial), 'replace' (overwrite)"
+        ExistingOutputPolicy.ERROR,
+        "--existing-output",
+        help="Action when output exists: 'error' (abort), 'skip' (ignore), 'resume' (continue partial), 'replace' (overwrite)",
     ),
     device: str = typer.Option(
-        "cpu", "--device", help="Compute device for neural network inference ('cpu', 'gpu', or 'cuda')"
+        "cpu",
+        "--device",
+        help="Compute device for neural network inference ('cpu', 'gpu', or 'cuda')",
     ),
     threads: str | None = typer.Option(None, "--threads", help="Thread count or 'max'"),
     # backend: str = typer.Option("local", "--backend", help="Execution backend (local or hpc)"),
-    no_asegdkt: bool = typer.Option(False, "--no-asegdkt", help="Skip asegdkt (whole brain segmentation) segmentation"),
+    no_asegdkt: bool = typer.Option(
+        False, "--no-asegdkt", help="Skip asegdkt (whole brain segmentation) segmentation"
+    ),
     no_cc: bool = typer.Option(False, "--no-cc", help="Skip corpus callosum segmentation"),
     no_cereb: bool = typer.Option(False, "--no-cereb", help="Skip cerebellum segmentation"),
     no_hypothal: bool = typer.Option(True, "--no-hypothal", help="Skip hypothalamus segmentation"),
-    no_brainstem: bool = typer.Option(False, "--no-brainstem", help="Skip brainstem subsegmentation"),
+    no_brainstem: bool = typer.Option(
+        False, "--no-brainstem", help="Skip brainstem subsegmentation"
+    ),
     skip_version_check: bool = typer.Option(
         False, "--skip-version-check", help="Bypass FastSurfer version check"
     ),
@@ -149,9 +161,7 @@ def fastsurfer_main(
                 succeeded += 1
                 status = TerminalStatus.SUCCESS
                 if not no_brainstem:
-                    brainstem_result = run_brainstem_segmentation(
-                        output_dir, case.id, threads
-                    )
+                    brainstem_result = run_brainstem_segmentation(output_dir, case.id, threads)
 
                     # Handle brainstem segmentation outcome
                     if brainstem_result.status == TerminalStatus.INTERRUPTED:
@@ -169,10 +179,19 @@ def fastsurfer_main(
                             case_id=case.id,
                             subcommand="brainstem",
                             started_at=started,
-                            outputs=[str(output_dir / case.id / "mri" / "brainstemSsLabels.v13.FSvoxelSpace.mgz")],
+                            outputs=[
+                                str(
+                                    output_dir
+                                    / case.id
+                                    / "mri"
+                                    / "brainstemSsLabels.v13.FSvoxelSpace.mgz"
+                                )
+                            ],
                         )
                         write_manifest(output_dir, case.id, "brainstem", brainstem_manifest)
-                        results.append({"case_id": case.id, "status": TerminalStatus.INTERRUPTED.value})
+                        results.append(
+                            {"case_id": case.id, "status": TerminalStatus.INTERRUPTED.value}
+                        )
                         if state.json_output:
                             print_json_summary(
                                 "fastsurfer", total, succeeded, failed, skipped, 130, results
@@ -183,7 +202,7 @@ def fastsurfer_main(
                         succeeded -= 1
                         failed += 1
                         status = TerminalStatus.FAILED
-                        
+
                     # Write brainstem manifest
                     if brainstem_result.status != TerminalStatus.INTERRUPTED:
                         brainstem_manifest = CompletionManifest(
@@ -192,7 +211,18 @@ def fastsurfer_main(
                             subcommand="brainstem",
                             started_at=started,
                             error_message=brainstem_result.error_message,
-                            outputs=[str(output_dir / case.id / "mri" / "brainstemSsLabels.v13.FSvoxelSpace.mgz")] if brainstem_result.status == TerminalStatus.SUCCESS else [],
+                            outputs=(
+                                [
+                                    str(
+                                        output_dir
+                                        / case.id
+                                        / "mri"
+                                        / "brainstemSsLabels.v13.FSvoxelSpace.mgz"
+                                    )
+                                ]
+                                if brainstem_result.status == TerminalStatus.SUCCESS
+                                else []
+                            ),
                         )
                         write_manifest(output_dir, case.id, "brainstem", brainstem_manifest)
             else:
