@@ -332,7 +332,7 @@ def test_runner_run_case_replace_output_clears_existing_case(mock_runtime_availa
         assert ret == 0
 
 
-def test_runner_run_case_chown_cleanup_invoked_as_root(tmp_path, monkeypatch):
+def test_runner_run_case_chown_cleanup_invoked_as_root(mock_runtime_available, tmp_path, monkeypatch):
     runner = EnigmaSCRunner(mode=ExecutionMode.DOCKER)
     input_file = tmp_path / "patient_01.nii.gz"
     input_file.write_text("fake nifti")
