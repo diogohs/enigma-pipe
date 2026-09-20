@@ -286,6 +286,46 @@ def test_runner_run_case(mock_runtime_available, tmp_path):
         assert not staging_dir.exists()
 
 
+def test_runner_run_case_preserves_nii_extension(mock_runtime_available, tmp_path):
+    runner = EnigmaSCRunner(mode=ExecutionMode.DOCKER)
+    input_file = tmp_path / "patient_01.nii"
+    input_file.write_text("fake nifti")
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
+
+    with (
+        patch.object(runner, "run", return_value=0),
+        patch("enigma_pipe.services.enigma_sc.stage_case_input") as mock_stage,
+    ):
+        runner.run_case("patient_01", input_file, output_dir, device="cpu")
+        assert mock_stage.call_args[0][2] == "patient_01.nii"
+
+
+def test_runner_run_case_replace_output_clears_existing_case(mock_runtime_available, tmp_path):
+    runner = EnigmaSCRunner(mode=ExecutionMode.DOCKER)
+    input_file = tmp_path / "patient_01.nii.gz"
+    input_file.write_text("fake nifti")
+    output_dir = tmp_path / "output"
+    case_out = output_dir / "patient_01"
+    stale_file = case_out / "old.csv"
+    stale_file.parent.mkdir(parents=True)
+    stale_file.write_text("stale")
+
+    def _check_case_cleared(*args, **kwargs):
+        assert not stale_file.exists()
+        return 0
+
+    with patch.object(runner, "run", side_effect=_check_case_cleared):
+        ret = runner.run_case(
+            "patient_01",
+            input_file,
+            output_dir,
+            device="cpu",
+            replace_output=True,
+        )
+        assert ret == 0
+
+
 def test_is_bids_dataset(tmp_path):
     empty_dir = tmp_path / "empty"
     empty_dir.mkdir()
@@ -327,6 +367,7 @@ def test_stage_case_input(tmp_path):
     assert staged_file.is_file()
     assert staged_file.read_text() == "dummy nifti content"
     assert staged_file.name == "case_01.nii.gz"
+    assert not staged_file.is_symlink()
 
 
 def test_discover_bids_cases(tmp_path):
